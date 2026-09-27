@@ -87,17 +87,49 @@ learned tuning them, each of which broke a test first:
 
 - **Primary chords first.** Without `COST_DEGREE`, any chord holding the
   melody note scored alike and Twinkle came out `I iii ii V vii iii V I`.
-  I, IV and V are free; vi and ii cost a little; iii more; a lone vii° most.
+  I, IV and V are free; vi and ii cost a little; iii more.
+- **Rarity is by mode and by chord type, not by degree number.** The degree
+  table was first written for major keys only, so in A minor it charged G
+  major (VII) the diminished chord's price and let B diminished (ii°) through
+  nearly free: `Amin Bdim Emin Amin`. Now `COST_DEGREE` / `COST_DEGREE_MINOR`
+  are per mode and `COST_DIMINISHED` is charged to any diminished triad.
 - **Holding a chord is a good move, not a penalty** (`SAME_CHORD` +0.1). At
   -0.05 the search changed chord at every opportunity.
 - **The tune's last note weighs double** (`ACCENT_FINAL`). Without it,
   Twinkle at one chord a bar ended on V, because the D D beat the C C.
+- **A secondary dominant always resolves to its target** (`SECONDARY_LOST`
+  is effectively forbidden, and none may end a progression). As a cost of
+  -0.5 it held in the fixed rhythms by luck and gave way in Auto.
+- **A secondary dominant resolving scores as a dominant going home**, not by
+  its target's function. Scored as D into S, V7/IV -> IV was a
+  retrogression and C C7 | F lost to Cmaj7. `SECONDARY_HOME` was then
+  lowered from 0.6 to 0.2, or every Colourful suggestion filled with them.
 - **v loses to V in minor when the melody does not choose**
   (`COST_MINOR_DOMINANT`): the leading tone is what makes a dominant pull
   home. They tied exactly before, and the tie fell the wrong way.
 - **The search is a merge, not a sort.** Each chord's paths are already best
   first, so the best ways into the next chord are a k-way merge. That took
   128 bars from 2.4s to 0.38s, with identical answers.
+
+**Auto timing** reads the melody in half bars (whole bars where a bar does
+not halve on a beat, as in 3/4). A change on the bar line is free and one on
+the half bar costs `CHANGE_HALF`, so chords are as long as the tune lets them
+be. A beat-by-beat Auto was built first and abandoned
+([0006](docs/decisions/0006-auto-reads-half-bars.md)): every change collects
+a reward for moving well, so on a fine grid changes paid for themselves at
+any cost short of forbidding them. `RHYTHMS` keeps Auto last so a saved
+choice of the others keeps its index.
+
+**Editing** ([0007](docs/decisions/0007-edit-one-chord.md)):
+`H.alternatives`, `H.replace`, `H.split`, `H.remove`, `H.copy` and
+`H.describe` work on one suggestion. Alternatives are scored the way the
+search scores a chord - fit plus the moves either side - and never include a
+chord that could not stand there. Split halves on the beat nearest the middle
+and fills the second half with the best alternative, which is how a passing
+chord is found (C before F becomes C C7 in Colourful). Remove gives the
+chord's time to the one before and joins identical neighbours. Each
+suggestion carries its `palette`, `key` and `pulse` so it can be edited
+without the options that made it.
 
 `H.voice` lays each chord out in close position, **under the melody while the
 chord sounds**, moving as little as possible from the chord before. The test
@@ -156,7 +188,16 @@ accent**, so yellow always means "what you would be adding"
 
 Three numbered steps - **1 Source, 2 Key, 3 Suggestions** - and only step 1
 is drawn until something has been read. **No dead controls**: the chord
-options appear only for a melody, the melody options only for chords.
+options appear only for a melody, the melody options only for chords; Split
+is not drawn on a chord a beat long, nor Remove on the only chord.
+
+The chord editor draws the chosen progression as one button per chord, each
+as wide as the chord is long so the row lines up with the roll; the chord
+being edited is marked in the roll with the ramp's `#2A2F37`. The first edit
+keeps a copy of the progression as suggested (`s.original`), which is what
+*Put back as suggested* restores. **The Bass note box re-voices in place
+rather than re-suggesting**, so it does not throw edits away; every other
+option change re-suggests and does.
 
 Preferences (chord rhythm, colour, bass, density, register) are saved in one
 ExtState string; the source, its kind and its key are not, because they
@@ -186,7 +227,14 @@ distinct-melodies rule checked only for identical melodies, and the
 strong-beat rule hidden by the final scoring. Each now has a test that fails
 without it.
 
-**The UI sweep clicks each button from a fresh start.** Walking the buttons
+**The UI sweep clicks each button from a fresh start**, in each of several
+states (`STATES` in `test_ui.lua`: each fixture, and the chord editor open
+before and after an edit). Walking the buttons
 in one session let an early click on *Chords* hide every chord option after
 it, and the sweep passed without ever reaching them. It now lists what it
 reached by name, so a control that stops being reachable is a missing name.
+
+**Chord buttons share labels with the key buttons** - the editor's `C` and
+the key's `C`. The UI test finds editor chords by position (`clickChord`),
+never by label; clicking by label once swapped a chord for the alternative
+called `C` instead of choosing the chord `C`.

@@ -32,6 +32,12 @@ M.RHYTHMS = {
   { name = "2 a bar",   bars = 0.5 },
   { name = "1 a bar",   bars = 1 },
   { name = "1 / 2 bars", bars = 2 },
+  -- Auto: the melody decides. It is read in half bars, a change on the bar
+  -- line is free and one on the half bar has to be earned (CHANGE_HALF), and
+  -- a chord may hold for as long as the tune lets it - so chords come out
+  -- half a bar, a bar, two bars long, wherever the melody puts them. Last in
+  -- the list so a saved choice of the other three still means what it meant.
+  { name = "Auto",      auto = true },
 }
 
 -- How far past plain triads the palette reaches. Each includes the one
@@ -71,7 +77,18 @@ M.TONE_CHROMATIC  = -0.8    -- a note from outside the key and the chord
 -- chord in its own right, rarer still. Without these costs every chord that
 -- happened to hold the melody note scored alike, and Twinkle came out as
 -- I iii ii V vii iii V I.
-M.COST_DEGREE     = { [0] = 0, 0.04, 0.10, 0, 0, 0.04, 0.30 }
+--
+-- Which chords are rare depends on the mode. In a major key iii is the rare
+-- one; in a minor key III, VI and VII are major chords, as common as any -
+-- the relative major and the chords either side of it. The diminished triad
+-- is rare in both, and is charged for being diminished rather than for the
+-- degree it sits on: this table was once indexed by degree alone, written
+-- for major, and in A minor it charged G major (VII) the diminished
+-- chord's price while B diminished (ii) went nearly free. The minor tune
+-- at a chord a bar came out Amin Bdim Emin Amin.
+M.COST_DEGREE       = { [0] = 0, 0.04, 0.10, 0, 0, 0.04, 0.04 }   -- a major key
+M.COST_DEGREE_MINOR = { [0] = 0, 0.04, 0.04, 0, 0, 0.04, 0.04 }   -- a minor key
+M.COST_DIMINISHED   = 0.26   -- a diminished triad, on any degree
 M.COST_SEVENTH    = 0.06    -- waived when the melody plays the seventh
 -- A minor dominant - v in natural minor - has no leading tone, and the
 -- leading tone is what makes a dominant pull home (Open Music Theory,
@@ -91,8 +108,25 @@ M.FUNCTION_MOVE = {
 -- Root motion, in semitones up from one root to the next.
 M.ROOT_MOVE = { [5] = 0.20, [2] = 0.05, [9] = 0.05, [8] = 0.05, [6] = -0.20 }
 M.SAME_CHORD      = 0.1   -- holding a chord across a change is allowed
-M.SECONDARY_HOME  =  0.60   -- a secondary dominant resolving to its target
-M.SECONDARY_LOST  = -0.50   -- and one that does not
+
+-- Auto timing: what changing chord on the half bar costs. It was first
+-- tried a beat at a time, with a cost for each beat by how strong it is, and
+-- abandoned: every change also collects a reward for moving well, so the
+-- finer the grid the more changes paid for themselves, and the minor tune
+-- changed chord on nine of its sixteen beats at every cost tried short of
+-- forbidding it. Half bars are where tonal harmony changes anyway.
+M.CHANGE_HALF = -0.25
+-- A secondary dominant resolving to its target, on top of scoring as a
+-- dominant going home (see M.move). It was 0.6 while the resolution was
+-- wrongly scored by the target's function; once that was fixed, 0.6 put two
+-- or three in every Colourful suggestion, and 0.2 leaves one or two. At 0
+-- a C before F no longer splits into C7.
+M.SECONDARY_HOME  =  0.2
+-- And one that does not is not offered at all. It was a cost of -0.5 at
+-- first, which held in the fixed rhythms by luck and gave way in Auto,
+-- where a B7 in A minor went to A minor instead of E. A secondary dominant
+-- exists to lead to its chord; one that does not reads as a wrong note.
+M.SECONDARY_LOST  = -1e6
 M.PLAGAL_POP      =  0.20   -- bVII-I and iv-I, rock's and pop's own cadences
 
 M.START_TONIC     =  0.40   -- begin on I
@@ -234,33 +268,38 @@ end
 -- Fitting a chord to a slot
 ------------------------------------------------------------------------------
 
---[[  The melody notes over each slot, weighted. Returns a list of slots,
-      each { start, len, notes = { {pc, w, changed} } }. ]]
-function M.slots(line, beats, slotLen, pulse)
+--[[  The melody notes over the stretch a to b, weighted: { start, len,
+      notes = { {pc, w, dur, changed} } }. A note that starts on a is heard
+      on the change; one tied over from before it least. ]]
+function M.span(line, a, b, pulse)
   pulse = pulse or 1
+  local final = line[#line]
+  local s = { start = a, len = b - a, notes = {} }
+  for _, note in ipairs(line) do
+    local lo, hi = math.max(a, note.start), math.min(b, note.start + note.len)
+    if hi - lo > 1e-9 then
+      local accent
+      if note.start < a - 1e-9 then accent = M.ACCENT_TIED
+      elseif math.abs(note.start - a) < 1e-6 then accent = M.ACCENT_CHANGE
+      elseif math.abs((note.start / pulse) - math.floor(note.start / pulse + 0.5)) < 1e-6 then
+        accent = M.ACCENT_BEAT
+      else accent = M.ACCENT_OFF end
+      local w = (hi - lo) * accent
+      if note == final then w = w * M.ACCENT_FINAL end
+      s.notes[#s.notes + 1] = { pc = note.pitch % 12, w = w,
+                                dur = hi - lo, changed = accent == M.ACCENT_CHANGE }
+    end
+  end
+  return s
+end
+
+-- The melody cut into equal slots, one per chord change.
+function M.slots(line, beats, slotLen, pulse)
   local n = math.max(1, math.ceil(beats / slotLen - 1e-6))
   local out = {}
-  local final = line[#line]
   for i = 0, n - 1 do
     local a = i * slotLen
-    local b = math.min(beats, a + slotLen)
-    local s = { start = a, len = b - a, notes = {} }
-    for _, note in ipairs(line) do
-      local lo, hi = math.max(a, note.start), math.min(b, note.start + note.len)
-      if hi - lo > 1e-9 then
-        local accent
-        if note.start < a - 1e-9 then accent = M.ACCENT_TIED
-        elseif math.abs(note.start - a) < 1e-6 then accent = M.ACCENT_CHANGE
-        elseif math.abs((note.start / pulse) - math.floor(note.start / pulse + 0.5)) < 1e-6 then
-          accent = M.ACCENT_BEAT
-        else accent = M.ACCENT_OFF end
-        local w = (hi - lo) * accent
-        if note == final then w = w * M.ACCENT_FINAL end
-        s.notes[#s.notes + 1] = { pc = note.pitch % 12, w = w,
-                                  dur = hi - lo, changed = accent == M.ACCENT_CHANGE }
-      end
-    end
-    out[#out + 1] = s
+    out[#out + 1] = M.span(line, a, math.min(beats, a + slotLen), pulse)
   end
   return out
 end
@@ -290,7 +329,10 @@ function M.fit(ch, slot, key)
   end
   local f = total > 0 and sum / total or 0
 
-  if ch.kind == "diatonic" then f = f - M.COST_DEGREE[ch.degree] end
+  if ch.kind == "diatonic" then
+    f = f - (key.majorish and M.COST_DEGREE or M.COST_DEGREE_MINOR)[ch.degree]
+  end
+  if ch.size == 3 and ch.has[3] and ch.has[6] then f = f - M.COST_DIMINISHED end
   if ch.func == "D" and ch.degree == 4 and ch.has[3] then f = f - M.COST_MINOR_DOMINANT end
   if ch.size >= 4 and not playsSeventh then f = f - M.COST_SEVENTH end
   if ch.kind == "borrowed" then f = f - M.COST_BORROWED end
@@ -319,6 +361,12 @@ end
 function M.move(a, b, key)
   if a.id == b.id then return M.SAME_CHORD end
   local v = M.FUNCTION_MOVE[a.func][b.func] or 0
+  if a.kind == "secondary" and b.root == a.target then
+    -- A secondary dominant resolving is a dominant going to its tonic, for
+    -- the moment. Scored by b's function, V7/IV into IV read as D into S -
+    -- a retrogression - and cost the C7 in C C7 | F its place to Cmaj7.
+    v = M.FUNCTION_MOVE.D.T
+  end
   v = v + (M.ROOT_MOVE[(b.root - a.root) % 12] or 0)
   if a.kind == "secondary" then
     v = v + ((b.root == a.target) and M.SECONDARY_HOME or M.SECONDARY_LOST)
@@ -335,6 +383,7 @@ local function startScore(ch, key)
 end
 
 local function endScore(ch, key)
+  if ch.kind == "secondary" then return M.SECONDARY_LOST end
   if ch.root == key.tonic and ch.func == "T" then return M.END_TONIC end
   if ch.func == "D" and ch.root == key.degreePc[4] and ch.kind ~= "secondary" then
     return M.END_HALF
@@ -375,8 +424,20 @@ end
           numerals, symbols (strings), score, match (0..1) } ]]
 function M.suggest(line, T, opts)
   local key = opts.key
-  local slotLen = opts.barBeats * M.RHYTHMS[opts.rhythm or 2].bars
-  local slots = M.slots(line, opts.beats, slotLen, opts.pulse)
+  local rhythm = M.RHYTHMS[opts.rhythm or 2]
+  local pulse = opts.pulse or 1
+  -- Auto reads half bars where a bar divides into two equal halves of beats
+  -- (4/4, 6/8, 2/2), and whole bars where it does not (3/4, 5/8).
+  local pulses = math.floor(opts.barBeats / pulse + 0.5)
+  local halves = rhythm.auto and pulses % 2 == 0
+  local slotLen = rhythm.auto and (halves and opts.barBeats / 2 or opts.barBeats)
+                  or opts.barBeats * rhythm.bars
+  local slots = M.slots(line, opts.beats, slotLen, pulse)
+  local change = {}
+  for i, s in ipairs(slots) do
+    local onBar = math.abs(s.start / opts.barBeats - math.floor(s.start / opts.barBeats + 0.5)) < 1e-6
+    change[i] = (rhythm.auto and not onBar) and M.CHANGE_HALF or 0
+  end
   local pal = M.palette(key, T, opts.colour or 1)
   local random = (opts.variation or 0) > 0 and rng(opts.variation * 7919) or nil
 
@@ -401,7 +462,9 @@ function M.suggest(line, T, opts)
   local moves = {}
   for _, a in ipairs(pal) do
     moves[a.id] = {}
-    for _, b in ipairs(pal) do moves[a.id][b.id] = M.move(a, b, key) * M.W_MOVE end
+    for _, b in ipairs(pal) do
+      moves[a.id][b.id] = M.move(a, b, key) * M.W_MOVE
+    end
   end
   local function better(x, y) return x.score > y.score end
 
@@ -410,14 +473,14 @@ function M.suggest(line, T, opts)
     for _, b in ipairs(pal) do
       -- Each chord's paths are already best first, so the best ways into b
       -- are a merge of those lists, not a sort of all of them together.
-      local cands, fb, at = {}, fits[i][b.id], {}
+      local cands, fb, at, cc = {}, fits[i][b.id], {}, change[i]
       for _, a in ipairs(pal) do at[a.id] = 1 end
       for k = 1, M.KEEP_PER_CHORD do
         local bestA, bestScore
         for _, a in ipairs(pal) do
           local p = paths[a.id][at[a.id]]
           if p then
-            local sc = p.score + moves[a.id][b.id]
+            local sc = p.score + moves[a.id][b.id] + (a.id ~= b.id and cc or 0)
             if not bestScore or sc > bestScore then bestA, bestScore = a, sc end
           end
         end
@@ -458,22 +521,151 @@ function M.suggest(line, T, opts)
 
   local out = {}
   for _, p in ipairs(chosen) do
-    local sug = { score = p.score, match = M.match(p.chords, slots), chords = {} }
-    local numerals, symbols = {}, {}
+    local sug = { score = p.score, chords = {}, palette = pal, key = key, pulse = pulse }
     for i, ch in ipairs(p.chords) do
       local last = sug.chords[#sug.chords]
       if last and last.chord.id == ch.id then
         last.len = last.len + slots[i].len
       else
         sug.chords[#sug.chords + 1] = { start = slots[i].start, len = slots[i].len, chord = ch }
-        numerals[#numerals + 1] = ch.numeral
-        symbols[#symbols + 1] = ch.symbol
       end
     end
-    sug.numerals, sug.symbols = numerals, symbols
+    M.describe(sug, line)
     out[#out + 1] = sug
   end
   return out
+end
+
+------------------------------------------------------------------------------
+-- Editing one progression, chord by chord
+--
+-- Once a progression is chosen, any one chord can be swapped for another,
+-- split in two with a passing chord in its second half, or removed and its
+-- time given to a neighbour. Everything else in the progression stays put.
+-- The alternatives are judged the way the search judged the chord: how it
+-- fits the melody over it, and how it moves from the chord before and into
+-- the chord after.
+------------------------------------------------------------------------------
+
+-- Numerals, symbols and the "fits" share, from the chords as they now stand.
+function M.describe(sug, line)
+  local numerals, symbols, on, all = {}, {}, 0, 0
+  for _, c in ipairs(sug.chords) do
+    numerals[#numerals + 1] = c.chord.numeral
+    symbols[#symbols + 1] = c.chord.symbol
+    for _, n in ipairs(M.span(line, c.start, c.start + c.len, sug.pulse).notes) do
+      all = all + n.dur
+      if c.chord.pcs[n.pc] then on = on + n.dur end
+    end
+  end
+  sug.numerals, sug.symbols = numerals, symbols
+  sug.match = all > 0 and on / all or 1
+  return sug
+end
+
+--[[  Other chords for chord i, best first, each { chord, score, match }.
+      A chord that could not stand there is not offered: a secondary dominant
+      not followed by its target, or anything after one that is not its
+      target. The chord already there is left out. ]]
+M.ALTERNATIVES = 8
+function M.alternatives(sug, i, line)
+  local c = sug.chords[i]
+  local key = sug.key
+  local span = M.span(line, c.start, c.start + c.len, sug.pulse)
+  local prev = sug.chords[i - 1] and sug.chords[i - 1].chord
+  local nxt = sug.chords[i + 1] and sug.chords[i + 1].chord
+  local out = {}
+  for _, ch in ipairs(sug.palette) do
+    if ch.id ~= c.chord.id then
+      local score = M.fit(ch, span, key) * M.W_FIT
+      score = score + (prev and M.move(prev, ch, key) * M.W_MOVE or startScore(ch, key))
+      score = score + (nxt and M.move(ch, nxt, key) * M.W_MOVE or endScore(ch, key))
+      if score > M.SECONDARY_LOST / 2 then
+        local on, all = 0, 0
+        for _, n in ipairs(span.notes) do
+          all = all + n.dur
+          if ch.pcs[n.pc] then on = on + n.dur end
+        end
+        out[#out + 1] = { chord = ch, score = score, match = all > 0 and on / all or 1 }
+      end
+    end
+  end
+  table.sort(out, function(a, b)
+    if a.score ~= b.score then return a.score > b.score end
+    return a.chord.id < b.chord.id
+  end)
+  for k = #out, M.ALTERNATIVES + 1, -1 do out[k] = nil end
+  return out
+end
+
+function M.replace(sug, i, ch, line)
+  sug.chords[i].chord = ch
+  return M.describe(sug, line)
+end
+
+-- The shortest chord a split may leave: a beat.
+function M.canSplit(sug, i)
+  return sug.chords[i].len >= 2 * sug.pulse - 1e-9
+end
+
+--[[  Splits chord i in two, on the beat nearest its middle, and puts the best
+      alternative in the second half - a passing chord, leading into the
+      chord after. Returns the new chord's index, or nil if it is too short
+      to split. ]]
+function M.split(sug, i, line)
+  if not M.canSplit(sug, i) then return nil end
+  local c = sug.chords[i]
+  local p = sug.pulse
+  local half = math.floor(c.len / 2 / p + 0.5) * p
+  half = math.max(p, math.min(c.len - p, half))
+  table.insert(sug.chords, i + 1, { start = c.start + half, len = c.len - half, chord = c.chord })
+  c.len = half
+  local best = M.alternatives(sug, i + 1, line)[1]
+  if best then sug.chords[i + 1].chord = best.chord end
+  M.describe(sug, line)
+  return i + 1
+end
+
+function M.canRemove(sug) return #sug.chords > 1 end
+
+--[[  Removes chord i. The chord before it takes its time; the first chord
+      gives its time to the one after. If that leaves the same chord twice in
+      a row - removing F from C F C - the two become one held chord, because
+      removing a chord is asking for fewer of them. Returns the index of the
+      chord that grew, or nil if it is the only chord. ]]
+function M.remove(sug, i, line)
+  if not M.canRemove(sug) then return nil end
+  local c = sug.chords[i]
+  local grew
+  if i > 1 then
+    sug.chords[i - 1].len = sug.chords[i - 1].len + c.len
+    grew = i - 1
+  else
+    sug.chords[2].start = c.start
+    sug.chords[2].len = sug.chords[2].len + c.len
+    grew = 1
+  end
+  table.remove(sug.chords, i)
+  local after = sug.chords[grew + 1]
+  if after and after.chord.id == sug.chords[grew].chord.id then
+    sug.chords[grew].len = sug.chords[grew].len + after.len
+    table.remove(sug.chords, grew + 1)
+  end
+  M.describe(sug, line)
+  return grew
+end
+
+-- A copy deep enough to edit without touching the original, so a progression
+-- can be put back the way it was suggested.
+function M.copy(sug)
+  local c = {}
+  for k, v in pairs(sug) do c[k] = v end
+  c.chords = {}
+  for i, ch in ipairs(sug.chords) do c.chords[i] = { start = ch.start, len = ch.len, chord = ch.chord } end
+  c.numerals, c.symbols = {}, {}
+  for i, v in ipairs(sug.numerals) do c.numerals[i] = v end
+  for i, v in ipairs(sug.symbols) do c.symbols[i] = v end
+  return c
 end
 
 ------------------------------------------------------------------------------

@@ -73,7 +73,7 @@ button lights up while the window is open.
 
 | Control | What it does |
 | --- | --- |
-| **Change chord** | How often the chord changes: twice a bar, once a bar, or every two bars. |
+| **Change chord** | How often the chord can change: twice a bar, once a bar, every two bars, or **Auto**. With the first three, a chord still carries on into the next bar when it suits the melody better than a change would. |
 | **Chords from** | *Triads* - the seven basic chords of the key. *Sevenths* - those plus their seventh chords. *Colourful* - those plus chords borrowed from the minor/major key (like the bVII in rock) and "secondary dominants" that lead strongly into the next chord. |
 | **Bass note** | Adds each chord's root, low down. |
 
@@ -89,6 +89,31 @@ I IV I IV I V I     C F C F C G C     fits 100%
 I V vi I IV I V I   C G Amin C F C G C
 I ii I IV vi V I    C Dmin C F Amin G C
 ```
+
+#### Auto: chords where the melody puts them
+
+With **Change chord: Auto**, the melody decides where the chords change and
+how long each one lasts. A chord can last half a bar, a bar, or several bars;
+changes land on the bar line, or on the half bar when the tune really moves
+there. For a short minor tune that sits on its home note at the end, Auto
+gives **Amin** (a bar) | **Dmin E** (half a bar each) | **Amin** (two bars).
+
+#### Changing one chord
+
+The chosen progression is shown as a row of chord buttons, each as wide as
+the chord is long, so they line up with the picture underneath. Click a chord
+(its stretch lights up in the picture) and you can:
+
+| | |
+| --- | --- |
+| **Swap it** | Pick from the chords that fit the melody there and flow from the chord before into the chord after, best first. Hover one to see how much of the melody it fits. |
+| **Split** | Cut it in two and put a *passing chord* in the second half, chosen to lead into the next chord - C before F becomes C then C7, for example. |
+| **Remove** | Take it out; the chord before carries on in its place. |
+| **Put back as suggested** | Undo every change you made to this progression. |
+
+Split is not shown on a chord only a beat long, and Remove is not shown when
+there is only one chord left. Audition and Insert use the progression as you
+have edited it.
 
 ### For chords - melodies
 
