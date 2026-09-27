@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ReaPack index for Midi Suggester.
+
+  Add this repository in REAPER with Extensions > ReaPack > Import repositories,
+  pasting the raw URL of this file on the default branch:
+
+    https://raw.githubusercontent.com/KallumS/Midi-Suggester/main/index.xml
+
+  That URL only resolves once this file is on the default branch.
+
+  Each <source> is pinned to a commit rather than a branch, so an installed
+  version is the exact set of files that was tested and cannot change
+  underneath anyone. Publishing a new version means adding a <version> block
+  with a fresh commit hash - never editing an existing one.
+
+  The six files are one package and install into one folder, because the
+  main script loads the other five from beside itself.
+
+  ReaPack keys an installed package by its NAME, so renaming the script is
+  not an upgrade. Rename sparingly.
+-->
+<index version="1" name="Midi Suggester">
+  <category name="MIDI Editor">
+
+    <reapack name="Midi Suggester.lua" type="script" desc="Midi Suggester">
+      <version name="1.0" author="kallums" time="2026-09-27T20:00:00Z">
+        <changelog><![CDATA[First release. Reads a MIDI item and suggests what goes with it: chord progressions for a melody, melodies for a chord progression. Works out whether the item is a melody or chords and what key it is in, and both can be changed. Suggestions can be auditioned against the original and inserted on a new track under it, lined up bar for bar, with a copy of the original track's instrument. Needs ReaImGui.]]></changelog>
+        <source main="main" file="Midi Suggester.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/Midi%20Suggester.lua</source>
+        <source file="ms_theory.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_theory.lua</source>
+        <source file="ms_read.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_read.lua</source>
+        <source file="ms_harmony.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_harmony.lua</source>
+        <source file="ms_melody.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_melody.lua</source>
+        <source file="ms_place.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_place.lua</source>
+      </version>
+      <metadata>
+        <description><![CDATA[{\pard Midi Suggester\par
+Select a MIDI item - an imported .mid file is one - and run the script. For a melody it suggests chord progressions; for chords it suggests melodies. Audition a suggestion against the original, then insert it on a new track lined up bar for bar.\par
+Needs ReaImGui, from the ReaTeam Extensions repository.\par}]]></description>
+        <link rel="website">https://github.com/KallumS/Midi-Suggester</link>
+      </metadata>
+    </reapack>
+
+  </category>
+</index>

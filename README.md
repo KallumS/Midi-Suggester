@@ -24,7 +24,18 @@ If you have no ReaPack, get it from [reapack.com](https://reapack.com), put
 the file it gives you in `UserPlugins` inside the resource path below, restart,
 and then do the above.
 
-**2. Put all six files in one folder under Scripts.**
+**2a. The easy way - ReaPack.** Once this is merged into `main`: in REAPER,
+Extensions -> ReaPack -> Import repositories, and paste exactly this:
+
+```
+https://raw.githubusercontent.com/KallumS/Midi-Suggester/main/index.xml
+```
+
+Then Extensions -> ReaPack -> Browse packages, find Midi Suggester, install,
+and skip to *Using it*. It has to be that URL, ending in `index.xml` - the
+repository's web page will not work.
+
+**2b. By hand - put all six files in one folder under Scripts.**
 
 Options -> Show REAPER resource path in explorer/finder, then into `Scripts/`.
 Make a folder and put these six in it together:
