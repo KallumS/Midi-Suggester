@@ -33,6 +33,15 @@
         <source file="ms_melody.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_melody.lua</source>
         <source file="ms_place.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d5658458eca47da568d80896f38576c51c33e980/reascripts/ms_place.lua</source>
       </version>
+      <version name="1.1" author="kallums" time="2026-09-27T23:00:00Z">
+        <changelog><![CDATA[Chord suggestions can now follow the melody's timing: Change chord: Auto lets the melody decide where chords change and how long each lasts. A chosen progression can be edited chord by chord - swap any chord for others that fit, split one with a passing chord leading into the next, remove one, or put it back as suggested. Minor keys now favour their common chords (VII, III, VI) over the diminished ii, and secondary dominants always resolve.]]></changelog>
+        <source main="main" file="Midi Suggester.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/Midi%20Suggester.lua</source>
+        <source file="ms_theory.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/ms_theory.lua</source>
+        <source file="ms_read.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/ms_read.lua</source>
+        <source file="ms_harmony.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/ms_harmony.lua</source>
+        <source file="ms_melody.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/ms_melody.lua</source>
+        <source file="ms_place.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/015bb45eaadb98f8dd4d12391d61fc4724ae50d5/reascripts/ms_place.lua</source>
+      </version>
       <metadata>
         <description><![CDATA[{\pard Midi Suggester\par
 Select a MIDI item - an imported .mid file is one - and run the script. For a melody it suggests chord progressions; for chords it suggests melodies. Audition a suggestion against the original, then insert it on a new track lined up bar for bar.\par
