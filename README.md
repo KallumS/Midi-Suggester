@@ -24,7 +24,7 @@ If you have no ReaPack, get it from [reapack.com](https://reapack.com), put
 the file it gives you in `UserPlugins` inside the resource path below, restart,
 and then do the above.
 
-**2a. The easy way - ReaPack.** Once this is merged into `main`: in REAPER,
+**2a. The easy way - ReaPack.** In REAPER,
 Extensions -> ReaPack -> Import repositories, and paste exactly this:
 
 ```

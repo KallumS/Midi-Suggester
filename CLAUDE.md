@@ -63,8 +63,10 @@ stacking every other scale note, and a pentatonic has no thirds to stack.
 Krumhansl-Kessler profiles, plus three things a musician would ask
 (`ms_theory.detectKey`): does every note belong to the key, does the tune sit
 on the tonic chord, and does it end (and begin) on the tonic. **Each of those
-weights is load-bearing and a test fails without it** - the table of fifteen
-tunes in `test_theory.lua` names which tune needs which.
+weights is load-bearing and a test fails without it** - the table of tunes
+in `test_theory.lua` names which tune needs which. The weights were chosen
+on fifteen of them; two Ode to Joy cases were added after, to pin
+`KEY_OUTSIDE`.
 
 **Every setting misses one tune, and this one misses Ode to Joy's first
 phrase** (it ends on D, a half cadence, and reads as D minor). The setting
@@ -204,6 +206,35 @@ ExtState string; the source, its kind and its key are not, because they
 belong to the item. Values are clamped on load, and the test loads nonsense
 to prove it.
 
+## Where it stands
+
+| | |
+| --- | --- |
+| 1.0 | First release: both directions, audition, insert. Merged to `main`, in the ReaPack index. **Run in REAPER by the user**: window right, suggestions sound good. |
+| 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. On `claude/vibrant-bell-qgrslb`, in the index, **not yet merged** and **not yet run in REAPER** - the chord editor has only been driven by the mocked ReaImGui. |
+
+**Known limits, all deliberate for now:**
+
+- One key for the whole item: a piece that modulates is read in one key.
+- One time signature: `read` takes the meter at the item's start.
+- Ode to Joy's first phrase reads as D minor (see *Finding the key*).
+- Auto changes chord only on the bar line or half bar, never on a beat.
+- Melodies are built in four-bar phrases; there is no editing of a
+  suggested melody, only of a progression.
+- Audition moves the transport and edit cursor (it puts the cursor back).
+
+**Ideas raised but not started** - the user decides which, if any:
+melody editing to match the chord editor (swap a bar, re-draw a phrase);
+rhythm patterns for inserted chords (they are block chords held for their
+length); a bass-line option beyond one root note; exporting a suggestion as
+a `.mid` (Starting Blocks has a tested MIDI writer, `sb_midi.lua`).
+
+**Publishing a version to ReaPack**: commit and push the code; then add a
+new `<version>` block to `index.xml` with every `<source>` pinned to that
+commit's hash, check each raw URL returns 200, and commit that separately.
+Never edit an existing `<version>`. Bump `Version:` in the script header to
+match.
+
 ## Tests
 
 ```
@@ -212,7 +243,7 @@ tools/test.sh
 
 | | |
 | --- | --- |
-| `test_theory.lua` | Spelling, ScaleView's chord names, numerals, the fifteen-tune key table. |
+| `test_theory.lua` | Spelling, ScaleView's chord names, numerals, the key-finding tune table. |
 | `test_read.lua` | Melody or chords, the line, cutting and naming chords. |
 | `test_harmony.lua` | The palette, known harmonisations, properties of every suggestion, voicing. |
 | `test_melody.lua` | The melody rules over every fixture, density, register and three variations. |
