@@ -88,6 +88,65 @@ eq(nums(suggest(F.ode, CM, 2, 1)[1]), "I V I V", "Ode to Joy's half cadence")
 -- The minor tune: its G# is the raised seventh, so the V is major.
 eq(nums(suggest(F.minorTune, AM, 1, 1)[1]), "i iv V i iv i", "the minor tune")
 
+-- A minor key's rare chord is its diminished ii, not its VII. The degree
+-- costs were once written for major alone and charged G major in A minor as
+-- if it were a diminished vii: one chord a bar came out Amin Bdim Emin Amin.
+do
+  local s = suggest(F.minorTune, AM, 2, 1)
+  eq(syms(s[1]), "Amin G Amin", "the minor tune, one a bar: VII, not ii dim")
+  for i = 1, 2 do
+    ok(not syms(s[i]):find("dim"), "no diminished chord in the first two: " .. syms(s[i]))
+  end
+end
+
+------------------------------------------------------------------------------
+-- Auto timing: the melody decides where the chords change
+------------------------------------------------------------------------------
+
+local AUTO = #H.RHYTHMS
+eq(H.RHYTHMS[AUTO].name, "Auto", "Auto is last, so saved choices of the others keep their place")
+
+local function timing(s)
+  local o = {}
+  for _, c in ipairs(s.chords) do o[#o + 1] = ("%s@%g"):format(c.chord.symbol, c.start) end
+  return table.concat(o, " ")
+end
+
+-- Twinkle's songbook harmony, with the chords where the tune moves.
+eq(timing(suggest(F.twinkle, CM, AUTO, 1)[1]), "C@0 F@4 C@6 F@8 C@10 G@12 C@14", "Twinkle, Auto")
+
+-- The minor tune sits on A minor for its last two bars, and Auto holds it
+-- there: chords of a bar, half a bar and two bars. At CHANGE_HALF = 0 the
+-- last two bars split into Dmin and Amin halves instead.
+do
+  local s = suggest(F.minorTune, AM, AUTO, 1)[1]
+  eq(timing(s), "Amin@0 Dmin@4 E@6 Amin@8", "the minor tune, Auto")
+  eq(s.chords[4].len, 8, "the last chord held two bars")
+end
+
+-- Every change on a bar line or a half bar, in every suggestion.
+for _, case in ipairs({ { "twinkle", CM }, { "ode", CM }, { "minorTune", AM } }) do
+  for colour = 1, #H.COLOURS do
+    for _, s in ipairs(suggest(F[case[1]], case[2], AUTO, colour)) do
+      for _, c in ipairs(s.chords) do
+        ok(c.start % 2 == 0, case[1] .. " Auto: a change at " .. c.start .. " is on a bar or half bar")
+      end
+    end
+  end
+end
+
+-- A bar that does not halve on a beat - 3/4 - changes only on bar lines.
+do
+  local waltz = F.line({ { 60, 2 }, { 64, 1 }, { 67, 3 }, { 65, 2 }, { 62, 1 }, { 60, 3 } })
+  local w = H.suggest(waltz, T, { key = CM, beats = 12, barBeats = 3, pulse = 1, rhythm = AUTO, colour = 1 })
+  for _, s in ipairs(w) do
+    for _, c in ipairs(s.chords) do ok(c.start % 3 == 0, "3/4 Auto changes on bar lines: " .. c.start) end
+  end
+  -- 6/8 halves on its dotted quarters.
+  local six = H.suggest(waltz, T, { key = CM, beats = 12, barBeats = 3, pulse = 1.5, rhythm = AUTO, colour = 1 })
+  ok(#six >= 1, "6/8 Auto suggests")
+end
+
 -- A melody that arpeggiates Bb in C. Triads have nothing for it but to
 -- clash; colourful borrows the chord the melody is spelling.
 do
@@ -135,6 +194,7 @@ for _, case in ipairs({ { "twinkle", CM }, { "ode", CM }, { "minorTune", AM } })
             eq(s.chords[i + 1].chord.root, ch.target, tag .. " #" .. si .. ": " .. ch.numeral .. " resolves")
           end
         end
+        ok(s.chords[#s.chords].chord.kind ~= "secondary", tag .. " #" .. si .. ": does not end on a secondary dominant")
         eq(#s.numerals, #s.chords, tag .. ": a numeral per chord")
       end
       -- Best first.
@@ -168,6 +228,132 @@ do
   eq(all(a1), all(a2), "the same variation gives the same ideas")
   ok(all(a1) ~= all(base), "a variation gives different ideas from the first set")
   ok(all(a1) ~= all(b), "and each variation from the next")
+end
+
+------------------------------------------------------------------------------
+-- Editing a progression chord by chord
+------------------------------------------------------------------------------
+
+local function tiles(sg, beats, tag)
+  local t = 0
+  for _, c in ipairs(sg.chords) do
+    if math.abs(c.start - t) > 1e-9 then ok(false, tag .. ": gap or overlap at " .. t) end
+    ok(c.len > 0, tag .. ": every chord has length")
+    t = c.start + c.len
+  end
+  ok(math.abs(t - beats) < 1e-9, tag .. ": still fills the piece")
+end
+
+do
+  local function fresh(colour) return H.suggest(F.twinkle, T, { key = CM, beats = 16, barBeats = 4,
+                                                              pulse = 1, rhythm = 2, colour = colour or 1 })[1] end
+
+  -- Alternatives: never the chord already there, best first, and each one
+  -- a chord that could stand there.
+  local sg = fresh(2)
+  eq(timing(sg), "C@0 Amin7@4 Fmaj7@8 C@12", "Twinkle, sevenths, one a bar")
+  local alts = H.alternatives(sg, 2, F.twinkle)
+  ok(#alts >= 1 and #alts <= H.ALTERNATIVES, "some alternatives, not too many")
+  for k, a in ipairs(alts) do
+    ok(a.chord.symbol ~= "Amin7", "the chord already there is not offered")
+    if k > 1 then ok(a.score <= alts[k - 1].score + 1e-9, "best first") end
+    ok(a.match >= 0 and a.match <= 1, "each with its fit")
+  end
+  eq(alts[1].chord.symbol, "F", "under A A G the best other chord is F")
+
+  -- Swap: that chord changes and nothing else does.
+  local sw = H.copy(sg)
+  H.replace(sw, 2, alts[1].chord, F.twinkle)
+  eq(timing(sw), "C@0 F@4 Fmaj7@8 C@12", "swapped the second chord")
+  eq(table.concat(sw.symbols, " "), "C F Fmaj7 C", "the symbols follow")
+  eq(table.concat(sw.numerals, " "), "I IV IVmaj7 I", "and the numerals")
+  eq(timing(sg), "C@0 Amin7@4 Fmaj7@8 C@12", "the original is untouched by editing a copy")
+
+  -- Split: a beat-aligned halving, with a passing chord leading on.
+  local sp = H.copy(sg)
+  local j = H.split(sp, 1, F.twinkle)
+  eq(j, 2, "the new chord is the second")
+  eq(timing(sp), "C@0 G@2 Amin7@4 Fmaj7@8 C@12", "C split, with G passing into Amin7")
+  tiles(sp, 16, "after a split")
+
+  -- In Colourful, a chord before F splits into its own dominant: C C7 | F.
+  do
+    local cs = H.copy(fresh(3))
+    local f
+    for _, ch in ipairs(cs.palette) do if ch.symbol == "F" then f = ch end end
+    H.replace(cs, 1, cs.palette[1], F.twinkle)          -- C
+    H.replace(cs, 2, f, F.twinkle)                      -- F
+    eq(cs.chords[1].chord.symbol .. " " .. cs.chords[2].chord.symbol, "C F", "set up C then F")
+    local k = H.split(cs, 1, F.twinkle)
+    eq(cs.chords[k].chord.numeral, "V7/IV", "C before F splits into C7, the V7 of IV")
+    eq(cs.chords[k].chord.symbol, "C7", "spelled C7")
+  end
+
+  -- A split lands on a beat, even when the middle of the chord does not:
+  -- a chord three beats long splits after one beat or two, never at 1.5.
+  do
+    local odd = H.copy(sg)
+    odd.chords[1].len = 3
+    odd.chords[2].start, odd.chords[2].len = 3, odd.chords[2].len + 1
+    H.split(odd, 1, F.twinkle)
+    local at = odd.chords[2].start
+    ok(at == 1 or at == 2, "a three-beat chord splits on a beat, not at " .. at)
+    tiles(odd, 16, "after splitting a three-beat chord")
+  end
+
+  -- Splitting stops at a beat.
+  local one = H.copy(sg)
+  for _ = 1, 3 do if H.canSplit(one, 1) then H.split(one, 1, F.twinkle) end end
+  eq(one.chords[1].len, 1, "split down to a beat")
+  ok(not H.canSplit(one, 1), "and no further")
+  eq(H.split(one, 1, F.twinkle), nil, "a split asked for anyway does nothing")
+  tiles(one, 16, "after splitting down to a beat")
+
+  -- Remove: the chord before plays on; the first gives way to the second.
+  local rm = H.copy(sg)
+  eq(H.remove(rm, 3, F.twinkle), 2, "removing the third grows the second")
+  eq(timing(rm), "C@0 Amin7@4 C@12", "Fmaj7 gone, Amin7 held on")
+  eq(rm.chords[2].len, 8, "for two bars")
+  local rm1 = H.copy(sg)
+  H.remove(rm1, 1, F.twinkle)
+  eq(timing(rm1), "Amin7@0 Fmaj7@8 C@12", "removing the first starts the second at the top")
+  tiles(rm1, 16, "after removing the first")
+
+  -- Removing F from C F C leaves one C, not two side by side.
+  local cfc = fresh(1)
+  eq(timing(cfc), "C@0 F@4 C@12", "Twinkle, triads, one a bar")
+  H.remove(cfc, 2, F.twinkle)
+  eq(timing(cfc), "C@0", "the Cs either side join up")
+  eq(cfc.chords[1].len, 16, "into one held chord")
+  ok(not H.canRemove(cfc), "the only chord cannot be removed")
+  eq(H.remove(cfc, 1, F.twinkle), nil, "and asking does nothing")
+
+  -- The fit follows the edits.
+  local worse = H.copy(sg)
+  H.replace(worse, 2, alts[#alts].chord, F.twinkle)
+  ok(worse.match <= sg.match, "a worse chord lowers the fit")
+end
+
+-- After a secondary dominant, only its target is offered; and a secondary
+-- dominant is only offered where its target follows.
+do
+  local col = H.suggest(F.twinkle, T, { key = CM, beats = 16, barBeats = 4, pulse = 1, rhythm = 1, colour = 3 })
+  for _, sg in ipairs(col) do
+    for i = 1, #sg.chords do
+      local prev = sg.chords[i - 1] and sg.chords[i - 1].chord
+      local nxt = sg.chords[i + 1] and sg.chords[i + 1].chord
+      for _, a in ipairs(H.alternatives(sg, i, F.twinkle)) do
+        if prev and prev.kind == "secondary" then
+          ok(a.chord.root == prev.target or a.chord.id == prev.id,
+             "after " .. prev.symbol .. " only its target, or itself held longer")
+        end
+        if a.chord.kind == "secondary" then
+          ok(nxt and (nxt.root == a.chord.target or nxt.id == a.chord.id),
+             a.chord.symbol .. " offered only before its target, or before itself held on")
+        end
+      end
+    end
+  end
 end
 
 ------------------------------------------------------------------------------

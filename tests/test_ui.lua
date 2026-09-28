@@ -164,6 +164,32 @@ local function click(label)
   frame()
 end
 
+-- The editor's chord buttons come straight after the list of suggestions.
+local function chordButtons()
+  local last = 0
+  for i, b in ipairs(g.buttons) do if b:match("^%d%.  ") then last = i end end
+  local out = {}
+  for i = last + 1, #g.buttons do
+    local b = g.buttons[i]
+    if b == "Put back as suggested" or b == "Insert on new track" or b:match("^Swap") then break end
+    out[#out + 1] = { i = i, label = b }
+    if #out > 64 then break end
+  end
+  return out
+end
+local function clickChord(n)
+  frame()
+  local c = chordButtons()[n]
+  if not c then error("no chord " .. n) end
+  frame(c.i)
+  frame()
+end
+local function count(label)
+  local n = 0
+  for _, b in ipairs(g.buttons) do if b == label then n = n + 1 end end
+  return n
+end
+
 local function project(fixture, name)
   P.reset()
   local tr = P.track("Piano", 1)
@@ -263,6 +289,108 @@ click("Melody")
 eq(g.headings[3], "Chord progressions", "and back")
 
 ------------------------------------------------------------------------------
+-- Editing a progression chord by chord
+------------------------------------------------------------------------------
+
+-- Twinkle, one chord a bar, triads: C F C.
+local function twinkleCFC()
+  P.ext = {}
+  project("twinkle", "Twinkle")
+  start()
+  click("Use selected item")
+  click("1 a bar")
+  click("Triads")
+  frame()
+  ok(has(g.buttons, "1.  I  IV  I"), "set up: C F C first")
+end
+
+do
+  twinkleCFC()
+  ok(has(g.texts, "Click a chord to change it"), "the chosen progression's chords can be changed")
+  eq(count("C"), 3, "the key's C and the progression's two")
+  ok(not has(g.texts, "Swap"), "nothing to swap until a chord is chosen")
+  ok(not has(g.buttons, "Split"), "and no Split or Remove yet")
+
+  clickChord(2)
+  ok(has(g.texts, "Swap F for"), "choosing F offers what to swap it for")
+  ok(has(g.buttons, "Split") and has(g.buttons, "Remove"), "and Split and Remove")
+  -- The roll shows which chord is being edited.
+  local band = false
+  for _, c in ipairs(g.rects) do if c == 0x2A2F37FF then band = true end end
+  ok(band, "the roll marks the chord being edited")
+
+  -- Swap F for D minor.
+  click("Dmin")
+  ok(has(g.buttons, "1.  I  ii  I   (edited)"), "the progression now reads I ii I, marked edited")
+  ok(has(g.texts, "C  Dmin  C      fits"), "with its chord names")
+  ok(has(g.buttons, "Put back as suggested"), "and can be put back")
+  ok(not has(g.buttons, "2.  I  ii  I   (edited)"), "only the chosen progression changed")
+
+  -- The bass box re-voices without losing the edit.
+  frame(nil, true)
+  frame()
+  ok(has(g.buttons, "1.  I  ii  I   (edited)"), "toggling the bass keeps the edit")
+  frame(nil, true)
+
+  -- Insert takes the edited progression.
+  click("Insert on new track")
+  eq(P.tracks[2].name, "Chords: C Dmin C", "the edited progression is what is inserted")
+
+  -- Split the last C: a passing chord appears in its second half.
+  clickChord(3)
+  ok(has(g.texts, "Swap C for"), "the last C chosen")
+  click("Split")
+  local row = {}
+  for _, c in ipairs(chordButtons()) do row[#row + 1] = c.label end
+  eq(#row >= 4 and row[1] .. " " .. row[2] .. " " .. row[3] or "", "C Dmin C", "split keeps the first three")
+  ok(row[4] and row[4] ~= "C" and row[4] ~= "Split", "and adds a different chord after them: " .. tostring(row[4]))
+
+  -- Put it back.
+  click("Put back as suggested")
+  ok(has(g.buttons, "1.  I  IV  I"), "put back as suggested")
+  ok(not has(g.buttons, "Put back as suggested"), "and nothing left to put back")
+
+  -- Remove F: the Cs either side join, leaving one chord - which then
+  -- cannot be removed, so Remove is not drawn.
+  clickChord(2)
+  click("Remove")
+  clickChord(1)
+  ok(has(g.buttons, "1.  I   (edited)"), "C F C less F is one C")
+  ok(not has(g.buttons, "Remove"), "the only chord has no Remove")
+  ok(has(g.buttons, "Split"), "but can still be split")
+
+  -- A chord split down to a beat has no Split.
+  for _ = 1, 4 do if has(g.buttons, "Split") then click("Split"); clickChord(1) end end
+  frame()
+  ok(not has(g.buttons, "Split"), "a chord a beat long cannot be split, and the button goes")
+
+  -- Choosing another suggestion leaves the editor closed.
+  click("Put back as suggested")
+  clickChord(2)
+  frame()
+  local second
+  for _, b in ipairs(g.buttons) do if b:match("^2%.") then second = b end end
+  click(second)
+  ok(not has(g.texts, "Swap"), "choosing another progression closes the chord editor")
+end
+
+-- Auto timing is offered and gives chords of different lengths.
+do
+  P.ext = {}
+  project("minorTune", "Tune")
+  start()
+  click("Use selected item")
+  click("Auto")
+  ok(has(g.buttons, "1.  i  iv  V  i"), "the minor tune, Auto: Amin Dmin E Amin")
+  local row = {}
+  for _, c in ipairs(chordButtons()) do
+    if c.label == "Split" then break end
+    row[#row + 1] = c.label
+  end
+  eq(table.concat(row, " "), "Amin Dmin E Amin", "the chord row follows it")
+end
+
+------------------------------------------------------------------------------
 -- A chord progression
 ------------------------------------------------------------------------------
 
@@ -281,19 +409,30 @@ ok(P.tracks[2].name:find("^Melody 1"), "a melody track")
 ------------------------------------------------------------------------------
 
 local swept = {}
-for _, fixture in ipairs({ "twinkle", "popChords", "arpeggios", "minorTune" }) do
-  project(fixture)
-  start()
-  frame()
-  click("Use selected item")
-  -- Each button is clicked from a fresh start, so a click that changes the
-  -- view (Melody to Chords, say) cannot hide the buttons after it.
-  frame()
-  local count = #g.buttons
-  for i = 1, count do
+-- Each state is a fixture and what to do after reading it; the sweep
+-- clicks every button of that state, each from a fresh start, so a click
+-- that changes the view (Melody to Chords, say) cannot hide the rest.
+local STATES = {
+  { "twinkle" }, { "popChords" }, { "arpeggios" }, { "minorTune" },
+  -- The chord editor, open on a chord, and after an edit.
+  { "twinkle", function() click("1 a bar"); click("Triads"); clickChord(2) end },
+  { "twinkle", function() click("1 a bar"); click("Triads"); clickChord(2); click("Dmin"); clickChord(3) end },
+  { "minorTune", function() click("Auto"); click("Colourful"); clickChord(2) end },
+}
+for _, state in ipairs(STATES) do
+  local fixture, prepare = state[1], state[2]
+  local function ready()
+    P.ext = {}
     project(fixture)
     start()
     click("Use selected item")
+    if prepare then prepare() end
+    frame()
+  end
+  ready()
+  local n = #g.buttons
+  for i = 1, n do
+    ready()
     local label = g.buttons[i]
     local okRun, err = pcall(frame, i)
     ok(okRun, fixture .. ": clicking '" .. tostring(label) .. "' - " .. tostring(err))
@@ -308,7 +447,8 @@ for _, fixture in ipairs({ "twinkle", "popChords", "arpeggios", "minorTune" }) d
 end
 for _, label in ipairs({ "Use selected item", "Melody", "Chords", "C", "Cb", "Major", "Mixolydian",
                          "2 a bar", "1 / 2 bars", "Triads", "Colourful", "Sparse", "Busy",
-                         "Low", "High", "Insert on new track", "Audition", "More ideas" }) do
+                         "Low", "High", "Insert on new track", "Audition", "More ideas",
+                         "Auto", "Split", "Remove", "Put back as suggested", "Dmin" }) do
   ok(swept[label], "the sweep reached '" .. label .. "'")
 end
 

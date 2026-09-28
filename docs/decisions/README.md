@@ -16,3 +16,5 @@ the standing rules; this holds the decisions behind them.
 | [0003](0003-a-new-track-with-the-sources-instrument.md) | A suggestion goes on a new track carrying the source's instrument |
 | [0004](0004-audition-on-a-temporary-track.md) | Audition plays the project with a temporary track, not the virtual keyboard |
 | [0005](0005-source-grey-suggestion-yellow.md) | The roll draws the source grey and the suggestion yellow |
+| [0006](0006-auto-reads-half-bars.md) | Auto chord timing reads half bars, not beats |
+| [0007](0007-edit-one-chord.md) | A chosen progression is edited chord by chord, in place |

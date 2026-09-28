@@ -13,7 +13,7 @@
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Midi-Suggester
- * Version:        1.0
+ * Version:        1.1
  * Provides:
  *   ms_theory.lua
  *   ms_read.lua
@@ -90,6 +90,9 @@ local ROLL_BEAT = 0x1E2228FF
 -- only ever the suggestion: what you would be adding, against what is there.
 local SOURCE_NOTE = 0x6D7581FF
 local PLAYHEAD  = 0xF2F4F7FF
+-- Behind the chord being edited: the ramp's "frame active" grey, a step up
+-- from the roll's ground and still far below the notes.
+local ROLL_BAND = 0x2A2F37FF
 local DIM       = 0x8A919CFF
 local WARN      = 0xD2483FFF
 
@@ -124,10 +127,12 @@ local ui = {
   kind = nil,         -- "Melody" or "Chords" when the user has overridden it
   keyRoot = nil, keyScale = nil, key = nil,
   sugs = {}, pick = 1, variation = 0,
+  chord = nil,        -- which chord of the chosen progression is being edited
   dirty = false, status = "", warn = false, playhead = nil,
 }
 
 local ctx
+local labelProgression
 
 local function say(text, warn) ui.status, ui.warn = text, warn or false end
 
@@ -160,7 +165,7 @@ local function analyse()
   ui.keyScale = ui.keyScale or best.scale
   ui.key = T.key(ui.keyRoot, ui.keyScale)
   if ui.an.chords then R.nameSegments(ui.an.chords, ui.key, T) end
-  ui.pick, ui.dirty = 1, true
+  ui.pick, ui.chord, ui.dirty = 1, nil, true
 end
 
 local function load(quiet)
@@ -178,8 +183,19 @@ local function load(quiet)
   say("")
 end
 
+-- A progression's notes and labels, from its chords as they now stand -
+-- after it is suggested, and again after every edit.
+labelProgression = function(s)
+  s.notes = H.voice(s, ui.an.line, st.bass == 1)
+  s.title = table.concat(s.numerals, "  ") .. (s.original and "   (edited)" or "")
+  s.detail = ("%s      fits %d%%"):format(table.concat(s.symbols, "  "),
+                                            math.floor(s.match * 100 + 0.5))
+  s.trackName = "Chords: " .. table.concat(s.symbols, " ")
+end
+
 local function rebuild()
   ui.dirty = false
+  ui.chord = nil
   ui.sugs = {}
   if not ui.an then return end
   local opts = { key = ui.key, beats = ui.an.beats, barBeats = ui.src.barBeats,
@@ -187,13 +203,7 @@ local function rebuild()
   if ui.an.kind == "Melody" then
     opts.rhythm, opts.colour = st.rhythm, st.colour
     ui.sugs = H.suggest(ui.an.line, T, opts)
-    for _, s in ipairs(ui.sugs) do
-      s.notes = H.voice(s, ui.an.line, st.bass == 1)
-      s.title = table.concat(s.numerals, "  ")
-      s.detail = ("%s      fits %d%%"):format(table.concat(s.symbols, "  "),
-                                                math.floor(s.match * 100 + 0.5))
-      s.trackName = "Chords: " .. table.concat(s.symbols, " ")
-    end
+    for _, s in ipairs(ui.sugs) do labelProgression(s) end
   else
     opts.density, opts.register = st.density, st.register
     ui.sugs = Mel.suggest(ui.an.chords, T, opts)
@@ -205,6 +215,17 @@ local function rebuild()
     end
   end
   if ui.pick > #ui.sugs then ui.pick = 1 end
+end
+
+-- Every edit goes through here: the first one keeps a copy of the
+-- progression as suggested, so it can be put back.
+local function edit(s, change)
+  Place.auditionStop()
+  local before = s.original or H.copy(s)
+  local result = change()
+  s.original = before
+  labelProgression(s)
+  return result
 end
 
 local function touched() ui.dirty = true; Place.auditionStop() end
@@ -276,12 +297,18 @@ end
 -- The roll
 ------------------------------------------------------------------------------
 
-local function pianoRoll(source, suggestion, beats, barBeats, width, height, playhead)
+local function pianoRoll(source, suggestion, beats, barBeats, width, height, playhead, band)
   local dl = ImGui.GetWindowDrawList(ctx)
   local x, y = ImGui.GetCursorScreenPos(ctx)
   ImGui.InvisibleButton(ctx, "##roll", width, height)
   ImGui.DrawList_AddRectFilled(dl, x, y, x + width, y + height, ROLL_BG, 3)
   beats = math.max(beats or 0, 1e-9)
+
+  -- The chord being edited, as a lighter stretch of the ground behind it.
+  if band then
+    local bx = x + width * (band.start / beats)
+    ImGui.DrawList_AddRectFilled(dl, bx, y, bx + width * (band.len / beats), y + height, ROLL_BAND, 0)
+  end
 
   local b = 0
   while b <= beats + 1e-9 do
@@ -402,7 +429,13 @@ local function drawOptions()
     if c then st.colour = c; touched() end
     ImGui.SameLine(ctx, 0, 24)
     local changed, v = ImGui.Checkbox(ctx, "Bass note", st.bass == 1)
-    if changed then st.bass = v and 1 or 0; touched() end
+    if changed then
+      -- Re-voiced in place, so a bass note added or taken away does not
+      -- throw away edits made to a progression.
+      st.bass = v and 1 or 0
+      Place.auditionStop()
+      for _, sg in ipairs(ui.sugs) do labelProgression(sg) end
+    end
     tip("Adds each chord's root, low, under the chord")
   else
     dim("Notes")
@@ -417,6 +450,75 @@ local function drawOptions()
   end
 end
 
+--[[  The chosen progression, one button per chord, each as wide as the
+      chord is long so the row lines up with the roll under it. Clicking one
+      opens what can be done to it: swap it for another, split it with a
+      passing chord, or remove it. Controls that would do nothing - Split on
+      a chord a beat long, Remove on the only chord - are not drawn. ]]
+local function drawChordEditor(s, w)
+  dim("Click a chord to change it")
+  local gap = 3
+  local usable = math.max(160, w) - gap * (#s.chords - 1)
+  for i, c in ipairs(s.chords) do
+    if i > 1 then ImGui.SameLine(ctx, 0, gap) end
+    ImGui.PushID(ctx, "chord" .. i)
+    if pick(c.chord.symbol, ui.chord == i, math.max(36, usable * c.len / ui.an.beats)) then
+      ui.chord = (ui.chord == i) and nil or i
+    end
+    tip(("%s  -  %s, %g beat%s"):format(c.chord.symbol, c.chord.numeral, c.len, c.len == 1 and "" or "s"))
+    ImGui.PopID(ctx)
+  end
+
+  local i = ui.chord
+  if i and s.chords[i] then
+    local c = s.chords[i]
+    dim(("Swap %s for"):format(c.chord.symbol))
+    ImGui.SameLine(ctx, 0, 10)
+    for k, alt in ipairs(H.alternatives(s, i, ui.an.line)) do
+      if k > 1 then ImGui.SameLine(ctx) end
+      ImGui.PushID(ctx, "alt" .. k)
+      if pick(alt.chord.symbol, false, 70) then
+        edit(s, function() H.replace(s, i, alt.chord, ui.an.line) end)
+      end
+      tip(("%s  -  fits %d%% of the melody here"):format(alt.chord.numeral,
+          math.floor(alt.match * 100 + 0.5)))
+      ImGui.PopID(ctx)
+    end
+
+    local any = false
+    if H.canSplit(s, i) then
+      if pick("Split", false, 70) then
+        ui.chord = edit(s, function() return H.split(s, i, ui.an.line) end)
+      end
+      tip("Cuts this chord in two and puts a passing chord in the second\n" ..
+          "half, chosen to lead into the chord after it.")
+      any = true
+    end
+    if H.canRemove(s) then
+      if any then ImGui.SameLine(ctx) end
+      if pick("Remove", false, 80) then
+        edit(s, function() H.remove(s, i, ui.an.line) end)
+        ui.chord = nil
+      end
+      tip("Takes this chord out; the chord before it plays on in its place.")
+      any = true
+    end
+  end
+
+  -- Whenever it has been edited, whichever chord is selected.
+  if s.original then
+    if pick("Put back as suggested", false, 180) then
+      Place.auditionStop()
+      local orig = s.original
+      ui.sugs[ui.pick] = orig
+      labelProgression(orig)
+      ui.chord = nil
+    end
+    tip("Undoes every change made to this progression here.")
+  end
+  ImGui.Dummy(ctx, 0, 2)
+end
+
 local function drawSuggestions()
   heading(3, ui.an.kind == "Melody" and "Chord progressions" or "Melodies")
   drawOptions()
@@ -429,7 +531,7 @@ local function drawSuggestions()
   for i, s in ipairs(ui.sugs) do
     ImGui.PushID(ctx, "sug" .. i)
     if pick(("%d.  %s"):format(i, s.title), ui.pick == i, math.max(160, w * 0.42)) then
-      if ui.pick ~= i then Place.auditionStop() end
+      if ui.pick ~= i then Place.auditionStop(); ui.chord = nil end
       ui.pick = i
     end
     ImGui.PopID(ctx)
@@ -439,8 +541,10 @@ local function drawSuggestions()
 
   ImGui.Dummy(ctx, 0, 4)
   local chosen = ui.sugs[ui.pick]
+  if chosen and chosen.chords then drawChordEditor(chosen, w) end
+  local band = chosen and ui.chord and chosen.chords and chosen.chords[ui.chord]
   pianoRoll(ui.src.notes, chosen and chosen.notes, ui.an.beats, ui.src.barBeats,
-            math.max(160, w), 110, ui.playhead)
+            math.max(160, w), 110, ui.playhead, band)
 
   ImGui.Dummy(ctx, 0, 2)
   if not chosen then return end
