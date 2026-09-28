@@ -211,7 +211,7 @@ to prove it.
 | | |
 | --- | --- |
 | 1.0 | First release: both directions, audition, insert. Merged to `main`, in the ReaPack index. **Run in REAPER by the user**: window right, suggestions sound good. |
-| 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. On `claude/vibrant-bell-qgrslb`, in the index, **not yet merged** and **not yet run in REAPER** - the chord editor has only been driven by the mocked ReaImGui. |
+| 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. Merged to `main` (PR #2), in the index. **Not yet confirmed in REAPER** - the chord editor has only been driven by the mocked ReaImGui, so ask the user how it behaved. |
 
 **Known limits, all deliberate for now:**
 
