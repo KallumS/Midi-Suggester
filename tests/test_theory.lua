@@ -104,6 +104,16 @@ expect({C4, C4 + 4, C4 + 6, C4 + 8, C4 + 11}, "Cmaj7#5#11")
 expect({C4, C4 + 14, C4 + 16, C4 + 18, C4 + 20, C4 + 22}, "Caug9#11")
 expect({C4, C4 + 4, C4 + 6, C4 + 11}, "Cmaj7b5")
 expect({C4, C4 + 4, C4 + 8, C4 + 11}, "Cmaj7#5")
+-- ScaleView Pro, October 2026: an altered dominant on its own root keeps its
+-- alterations whatever its fifth, and a draw goes to the reading with no slash.
+expect({C3, C4 + 4, C4 + 8, C4 + 10, C4 + 13}, "Caug7b9")    -- C7#5b9
+expect({C3, C4 + 4, C4 + 6, C4 + 10, C4 + 13}, "C7b5b9")
+expect({C3, C4 + 4, C4 + 6, C4 + 10, C4 + 15}, "C7b5#9")
+expect({C3, C4 + 4, C4 + 10, C4 + 13, C4 + 20}, "Caug7b9")   -- C7b9b13
+expect({C3, C4 + 4, C4 + 8, C4 + 10, C4 + 15}, "Caug7#9")
+expect({C3, C4 + 3, C4 + 6, C4 + 10, C4 + 14}, "Cmin9b5")
+expect({C3, C4 + 2, C4 + 7, C4 + 10}, "C7sus2")             -- was GminAdd11/C
+expect({C3, C4 + 2, C4 + 5, C4 + 7}, "Csus4Add9")           -- was Dmin7(11)/C
 expect({45, C4, 64, 67}, "Amin7")
 expect({C3, 64, 67, 69}, "C6")
 expect({43, C4, 64, 69}, "Amin7/G")

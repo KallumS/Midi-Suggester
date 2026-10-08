@@ -42,10 +42,21 @@ without a feature that genuinely needs to run in the audio thread.
 
 `ms_theory.lua` carries ScaleView Pro's chord reader **copied unchanged** -
 `CORE_RANK` through `analyse`, comments included - from
-`ScaleView-for-Reaper/reascripts/ScaleView Pro.lua` at `e31a6e8`. Its weights
+`ScaleView-for-Reaper/reascripts/ScaleView Pro.lua` at `f9e2691`. Its weights
 were tuned against 1.2 million sonorities of real music; they are not to be
 retuned here. A change belongs in ScaleView first, then is copied across.
 `tests/test_theory.lua` holds ScaleView's own expected names to prove the copy.
+
+**Last re-copied 7 October 2026**, from `e31a6e8` to `f9e2691`, for two changes
+made and measured in Pro: an altered dominant on its own root keeps its
+alterations whatever its fifth (C7#5b9 reads `Caug7b9`, not `A#min9b5/C`), and
+a draw goes to the reading that needs no slash (C D G Bb over C reads
+`C7sus2`, not `GminAdd11/C`). The reader block is Pro's verbatim and the
+tiebreak in `nameChord` matches Pro's `detectChord`. `nameChord` was then
+diffed against `ScaleView Pro.lua` itself - 60,212 voicings, the sweep, every
+two-note chord and music21's core corpus with its doublings, in no key and
+seven keys: 481,696 names, byte-identical. **Pro is the reference**, not the
+ScaleView plugin: the plugin is a port of Pro too.
 
 The same reader names the chords this script **suggests** as well as the ones
 it reads, so the two directions speak one vocabulary (`Amin`, `Cmaj7`,
