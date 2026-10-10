@@ -93,8 +93,14 @@ expect({52, 55, C4, 71}, "Cmaj7/E")
 expect({53, 57, 62, 74}, "Dmin/F")
 expect({53, 57, 62, 74}, "Dmin", key("D", "Minor (Natural)"))
 expect({53, 57, 62}, "Dmin/F", key("D", "Minor (Natural)"))
-expect({C4, C4 + 2, C4 + 3, C4 + 6, C4 + 9}, "Cdim9")
+expect({C4, C4 + 2, C4 + 3, C4 + 6, C4 + 9}, "D7b9/C")         -- Blocks; was Cdim9
 expect({C4, C4 + 16, C4 + 18, C4 + 21}, "F#min7b5/C")
+-- Starting Blocks' chords decide which roots a chord can have (ScaleView Pro df4ea43).
+expect({C4, C4 + 3, C4 + 6, C4 + 11}, "CminMaj7b5")     -- Blocks' diminished major seventh; was Baddb9/C
+expect({C4, C4 + 5, C4 + 7}, "Csus4")                    -- though Blocks builds Fsus2 over C too
+expect({71, 77}, "B(b5)(no3)")                           -- Blocks' fifth on B in C major
+expect({64, 74, 78, 81, 84}, "D9/E")                     -- a ninth chord's fourth inversion
+expect({60, 61, 63, 64, 68, 70}, "Caug7b9#9")            -- Blocks' altered dominant on C
 expect({C4, C4 + 3, C4 + 7, C4 + 9}, "Cmin6")
 expect({62, 63, 67, 69}, "D#maj7b5/D")
 expect({64, 70, 74}, "A#(b5)/E")
@@ -113,7 +119,7 @@ expect({C3, C4 + 4, C4 + 10, C4 + 13, C4 + 20}, "Caug7b9")   -- C7b9b13
 expect({C3, C4 + 4, C4 + 8, C4 + 10, C4 + 15}, "Caug7#9")
 expect({C3, C4 + 3, C4 + 6, C4 + 10, C4 + 14}, "Cmin9b5")
 expect({C3, C4 + 2, C4 + 7, C4 + 10}, "C7sus2")             -- was GminAdd11/C
-expect({C3, C4 + 2, C4 + 5, C4 + 7}, "Csus4Add9")           -- was Dmin7(11)/C
+expect({C3, C4 + 2, C4 + 5, C4 + 7}, "Dmin7(11)/C")         -- Blocks' quartal on D; was Csus4Add9
 expect({45, C4, 64, 67}, "Amin7")
 expect({C3, 64, 67, 69}, "C6")
 expect({43, C4, 64, 69}, "Amin7/G")
@@ -149,21 +155,21 @@ expect({C4, C4 + 2, C4 + 4, C4 + 7, C4 + 9, C4 + 10}, "C13")
 expect({C4, C4 + 3, C4 + 7, C4 + 9, C4 + 10}, "Cmin7(13)")
 expect({C4, C4 + 1, C4 + 4, C4 + 7, C4 + 9, C4 + 10}, "C13b9")
 expect({C4, C4 + 2, C4 + 4, C4 + 6, C4 + 7, C4 + 9, C4 + 10}, "C13#11")
-expect({C4, C4 + 3, C4 + 4, C4 + 6, C4 + 7, C4 + 10}, "C7#9#11")
+expect({C4, C4 + 3, C4 + 4, C4 + 6, C4 + 7, C4 + 10}, "F#13b5b9/C")   -- Blocks; was C7#9#11
 expect({C4, C4 + 2, C4 + 4, C4 + 5, C4 + 7}, "Cadd9Add11")
 expect({C4, C4 + 2, C4 + 3, C4 + 5, C4 + 7}, "CminAdd9Add11")
 expect({C4, C4 + 3, C4 + 5, C4 + 7, C4 + 10}, "Cmin7(11)")
 expect({C4, C4 + 2, C4 + 3, C4 + 5, C4 + 7, C4 + 10}, "Cmin11")
-expect({C4, C4 + 3, C4 + 5, C4 + 6, C4 + 10}, "Cmin7b5(11)")
+expect({C4, C4 + 3, C4 + 5, C4 + 6, C4 + 10}, "D#min6/9/C")   -- Blocks; was Cmin7b5(11)
 expect({69, 71, 77}, "F(b5)/A")
 expect({C4, C4 + 2, C4 + 3, C4 + 6, C4 + 11}, "Cbaddb9#9/C", key("Gb", "Major"))
 expect({64, 67, 71, 72, 74}, "Cmaj9/E")
 expect({64, 67, 70, 72, 74}, "C9/E")
 expect({55, 59, 62, 66, 77}, "G7(maj7)")
-expect({C4, C4 + 4, C4 + 7, C4 + 8}, "Caddb6")
+expect({C4, C4 + 4, C4 + 7, C4 + 8}, "G#maj7#5/C")   -- Blocks' maj7#5 on Ab; was Caddb6
 expect({C4, C4 + 2, C4 + 4, C4 + 8, C4 + 9}, "C6/9#5")
 expect({C4, C4 + 4, C4 + 10}, "C7")
-expect({C4, C4 + 2, C4 + 7, C4 + 11}, "Cmaj7sus2")
+expect({C4, C4 + 2, C4 + 7, C4 + 11}, "Gadd11/C")   -- Blocks; was Cmaj7sus2
 expect({54, 58, 61}, "F#", key("C", "Major"))
 
 -- The root and bass come back as pitch classes, for the reader to use.
