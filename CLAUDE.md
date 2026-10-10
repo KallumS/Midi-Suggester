@@ -47,6 +47,16 @@ were tuned against 1.2 million sonorities of real music; they are not to be
 retuned here. A change belongs in ScaleView first, then is copied across.
 `tests/test_theory.lua` holds ScaleView's own expected names to prove the copy.
 
+**10 October 2026: the Blocks dictionary**, ScaleView Pro's `df4ea43`
+(its decision 0011): where the notes are a Starting Blocks chord - one of
+its 78 chord types on any root, in any inversion, or one of the key's own
+chords on its degrees - `nameChord` names them on one of Blocks' roots, the
+reader's cost choosing between them. Ported into `nameChord` (the key's
+chords are built once per key and kept on the key table) and diffed against
+Pro over every one- to seven-note voicing and the music21 core corpus's
+distinct sonorities, in no key and seven keys: 439,504 names, byte-identical.
+Six of ScaleView's names in `test_theory.lua` moved with Pro's.
+
 **Last re-copied 7 October 2026**, from `e31a6e8` to `f9e2691`, for two changes
 made and measured in Pro: an altered dominant on its own root keeps its
 alterations whatever its fifth (C7#5b9 reads `Caug7b9`, not `A#min9b5/C`), and
