@@ -177,7 +177,7 @@ melodies, and the best four that share less than 60% of their notes are kept.
 - **Registers are not snapped to a tonic.** They are 7 semitones apart and
   snapping put Mid and High on the same note. Only the last note comes home.
 - Randomness is a fixed generator seeded from the request, so the same
-  settings always give the same melodies and "More ideas" is repeatable.
+  settings always give the same melodies and "More Ideas" is repeatable.
 
 ## REAPER, from a script
 
@@ -205,6 +205,15 @@ all three: every grey is blue-shifted (R < G < B); **every button wears the
 dark ink `#14171C`, chosen or not**; the theme is popped outside the
 `visible` test, because a collapsed window still pushed it.
 
+**Text follows Apple's writing guidelines**
+([0008](docs/decisions/0008-window-text-follows-apples-writing-guidelines.md),
+after Noterator's 0053): title-style buttons, toggles and headings with a
+verb first where they act ("Insert on New Track"), sentence-case tooltips and
+messages that say what to do, an em dash between phrases, curly quotes and
+apostrophes. Use the same word as Midi Variator for the same idea (*Use
+Selected Items*, *Audition*, *click*). Chord symbols and ScaleView's names stay
+as they are; saved preferences are indexes, so a label can change freely.
+
 The roll draws **the source in grey `#6D7581` and the suggestion in the
 accent**, so yellow always means "what you would be adding"
 ([0005](docs/decisions/0005-source-grey-suggestion-yellow.md)).
@@ -218,7 +227,7 @@ The chord editor draws the chosen progression as one button per chord, each
 as wide as the chord is long so the row lines up with the roll; the chord
 being edited is marked in the roll with the ramp's `#2A2F37`. The first edit
 keeps a copy of the progression as suggested (`s.original`), which is what
-*Put back as suggested* restores. **The Bass note box re-voices in place
+*Put Back as Suggested* restores. **The Bass Note box re-voices in place
 rather than re-suggesting**, so it does not throw edits away; every other
 option change re-suggests and does.
 
@@ -233,6 +242,7 @@ to prove it.
 | --- | --- |
 | 1.0 | First release: both directions, audition, insert. Merged to `main`, in the ReaPack index. **Run in REAPER by the user**: window right, suggestions sound good. |
 | 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. Merged to `main` (PR #2), in the index. **Not yet confirmed in REAPER** - the chord editor has only been driven by the mocked ReaImGui, so ask the user how it behaved. |
+| 1.1.1 | The window's words follow Apple's writing guidelines ([0008](docs/decisions/0008-window-text-follows-apples-writing-guidelines.md)): title-style buttons, messages that say what to do, em dashes and curly quotes. On `claude/adoring-feynman-bihxp2`. |
 
 **Known limits, all deliberate for now:**
 
