@@ -25,7 +25,8 @@ local g = {}
 local function resetFrame()
   g.idDepth, g.colDepth, g.colStack = 0, 0, {}
   g.buttons, g.ink, g.texts, g.checkboxes, g.headings = {}, {}, {}, {}, {}
-  g.rects = {}
+  g.rects, g.textInk, g.widths, g.menu, g.order = {}, {}, {}, {}, {}
+  g.varDepth, g.fontDepth, g.font, g.inkBars = 0, 0, nil, 0
 end
 resetFrame()
 
@@ -34,23 +35,73 @@ local consts = { "Col_Text", "Col_TextDisabled", "Col_WindowBg", "Col_PopupBg", 
   "Col_FrameBg", "Col_FrameBgHovered", "Col_FrameBgActive", "Col_TitleBg", "Col_TitleBgActive",
   "Col_TitleBgCollapsed", "Col_Button", "Col_ButtonHovered", "Col_ButtonActive", "Col_CheckMark",
   "Col_SliderGrab", "Col_SliderGrabActive", "Col_Separator", "Col_ScrollbarBg", "Col_ScrollbarGrab",
-  "Col_ScrollbarGrabHovered", "Col_ScrollbarGrabActive", "Cond_FirstUseEver", "Key_Escape" }
+  "Col_ScrollbarGrabHovered", "Col_ScrollbarGrabActive", "Cond_FirstUseEver", "Key_Escape",
+  "Col_NavHighlight", "StyleVar_FramePadding", "StyleVar_ItemSpacing", "StyleVar_ItemInnerSpacing",
+  "Key_Equal", "Key_KeypadAdd", "Key_Minus", "Key_KeypadSubtract", "Key_0" }
 for i, k in ipairs(consts) do ImGui[k] = i end
+-- Flags are bits, as in ReaImGui.
+ImGui.WindowFlags_MenuBar = 1024
+ImGui.ConfigFlags_NavEnableKeyboard = 1
+ImGui.Mod_Shortcut = 4096
 
 local function effective(idx)
   for i = #g.colStack, 1, -1 do if g.colStack[i].idx == idx then return g.colStack[i].col end end
 end
 
-function ImGui.CreateContext(name) return { name = name } end
+-- ImGui_Context ctx = CreateContext(string label, optional integer config_flags)
+function ImGui.CreateContext(name, flags) g.configFlags = flags; return { name = name } end
+-- ImGui_Font font = CreateFont(string family_or_file, integer size, optional integer flags)
+function ImGui.CreateFont(family, size)
+  if type(family) ~= "string" or math.type(size) ~= "integer" then error("CreateFont(family, size)") end
+  return { family = family, size = size }
+end
+function ImGui.Attach(_, obj) obj.attached = true end
+function ImGui.PushFont(_, font)
+  if not (font and font.attached) then error("PushFont with a font that is not attached") end
+  g.fontDepth = g.fontDepth + 1
+  g.font = font
+end
+function ImGui.PopFont() g.fontDepth = g.fontDepth - 1 end
+function ImGui.PushStyleVar(_, idx, a, b)
+  if type(idx) ~= "number" or type(a) ~= "number" then error("PushStyleVar(ctx, var, val1, val2)") end
+  if idx == ImGui.StyleVar_FramePadding then g.framePad = b end
+  if idx == ImGui.StyleVar_ItemSpacing then g.spacing = a end
+  g.varDepth = g.varDepth + 1
+end
+function ImGui.PopStyleVar(_, n) g.varDepth = g.varDepth - (n or 1) end
 function ImGui.SetNextWindowSize() end
 function ImGui.SetNextWindowBgAlpha(_, a) assert(a >= 0 and a <= 1) end
-function ImGui.Begin() return not g.collapsed, true end
+function ImGui.Begin(_, _, _, flags) g.windowFlags = flags; return not g.collapsed, true end
 function ImGui.End() end
-function ImGui.IsKeyPressed() return false end
-function ImGui.SeparatorText(_, s) g.headings[#g.headings + 1] = s end
+function ImGui.IsKeyPressed(_, key) return g.keys and g.keys[key] or false end
+function ImGui.GetKeyMods() return g.mods or 0 end
+-- Text measured as a sans-serif's average: about half its size per letter.
+function ImGui.CalcTextSize(_, s) local px = g.font and g.font.size or 13; return #s * px * 0.55, px end
+function ImGui.SeparatorText(_, s)
+  g.headings[#g.headings + 1] = s
+  g.order[#g.order + 1] = "heading:" .. s
+end
+function ImGui.Separator() end
 function ImGui.Text(_, s)
   if type(s) ~= "string" then error("Text got a " .. type(s)) end
   g.texts[#g.texts + 1] = s
+  g.textInk[#g.texts] = effective(ImGui.Col_Text) or 0xDDE1E7FF
+  g.order[#g.order + 1] = "text:" .. s
+end
+function ImGui.BeginMenuBar() g.inMenuBar = true; return true end
+function ImGui.EndMenuBar() g.inMenuBar = false end
+function ImGui.BeginMenu(_, label)
+  if not g.inMenuBar then error("BeginMenu outside the menu bar") end
+  g.menuOpen = label
+  return true
+end
+function ImGui.EndMenu() g.menuOpen = nil end
+-- bool clicked = MenuItem(ctx, label, optional shortcut, optional p_selected, optional enabled)
+function ImGui.MenuItem(_, label, shortcut, selected, enabled)
+  if not g.menuOpen then error("MenuItem outside a menu") end
+  g.menu[#g.menu + 1] = { label = label, shortcut = shortcut, selected = selected,
+                          enabled = enabled ~= false }
+  return g.menuClick == label and enabled ~= false
 end
 function ImGui.SameLine() end
 function ImGui.Dummy() end
@@ -73,10 +124,12 @@ function ImGui.PopStyleColor(_, n)
   g.colDepth = g.colDepth - (n or 1)
   if g.colDepth < 0 then error("PopStyleColor without a push") end
 end
-function ImGui.Button(_, label)
+function ImGui.Button(_, label, w)
   if type(label) ~= "string" then error("Button label is a " .. type(label)) end
   g.buttons[#g.buttons + 1] = label
   g.ink[#g.buttons] = { bg = effective(ImGui.Col_Button), text = effective(ImGui.Col_Text) }
+  g.widths[#g.buttons] = w or 0
+  g.order[#g.order + 1] = "button:" .. label
   if g.clickTarget == #g.buttons then g.clicked = label; return true end
   return false
 end
@@ -90,10 +143,13 @@ function ImGui.SetTooltip(_, s) if type(s) ~= "string" then error("tooltip is a 
 function ImGui.GetContentRegionAvail() return 860, 400 end
 function ImGui.GetWindowDrawList() return {} end
 function ImGui.GetCursorScreenPos() return 0, 0 end
+function ImGui.GetItemRectMin() return 0, 0 end
+function ImGui.GetItemRectMax() return 100, 28 end
 function ImGui.InvisibleButton() return false end
 function ImGui.DrawList_AddRectFilled(_, x1, y1, x2, y2, col)
   if x2 < x1 or y2 < y1 then error("rect is inside out") end
   g.rects[#g.rects + 1] = col
+  if col == 0x14171CFF then g.inkBars = (g.inkBars or 0) + 1 end
 end
 function ImGui.DrawList_AddLine(_, x1, y1, x2, y2, col)
   for _, v in ipairs({ x1, y1, x2, y2, col }) do
@@ -145,6 +201,8 @@ local function frame(click, toggle)
   f()
   if g.idDepth ~= 0 then error("PushID left unbalanced: " .. g.idDepth) end
   if g.colDepth ~= 0 then error("PushStyleColor left unbalanced: " .. g.colDepth) end
+  if g.varDepth ~= 0 then error("PushStyleVar left unbalanced: " .. g.varDepth) end
+  if g.fontDepth ~= 0 then error("PushFont left unbalanced: " .. g.fontDepth) end
   return g.clicked
 end
 
@@ -476,8 +534,150 @@ do
   click("Use Selected Items")
   frame()
   atexitFn()
-  eq(P.ext["MidiSuggester:state"], "rhythm=1;colour=3;bass=1;density=2;register=3",
+  eq(P.ext["MidiSuggester:state"], "rhythm=1;colour=3;bass=1;density=2;register=3;textSize=1",
      "nonsense in the saved state is put back in range, and an unreadable value ignored")
+end
+
+------------------------------------------------------------------------------
+-- Apple's Human Interface Guidelines (decision 0009)
+------------------------------------------------------------------------------
+
+-- WCAG's contrast ratio, which Apple's Accessibility page uses.
+local function luminance(col)
+  local function ch(v)
+    v = v / 255
+    return v <= 0.03928 and v / 12.92 or ((v + 0.055) / 1.055) ^ 2.4
+  end
+  local r = math.floor(col / 16777216) % 256
+  local gg = math.floor(col / 65536) % 256
+  local b = math.floor(col / 256) % 256
+  return 0.2126 * ch(r) + 0.7152 * ch(gg) + 0.0722 * ch(b)
+end
+local function contrast(a, b)
+  local la, lb = luminance(a), luminance(b)
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05)
+end
+local GROUND = 0x23272EFF
+
+do
+  P.ext = {}
+  project("twinkle", "Twinkle")
+  start()
+  frame()
+  ok(g.configFlags and g.configFlags & ImGui.ConfigFlags_NavEnableKeyboard ~= 0,
+     "the keyboard alone can move through the window: keyboard navigation is on")
+  ok(g.windowFlags and g.windowFlags & ImGui.WindowFlags_MenuBar ~= 0, "the window has a menu bar")
+  eq(g.font and g.font.size, 13, "text starts at the Mac's default 13 points")
+  eq(13 + 2 * (g.framePad or 0), 28, "a control is 28 points tall, Apple's Mac default")
+  eq(g.spacing, 12, "with 12 points between controls")
+
+  -- Every line of text, in every state the window has, is 7:1 against the
+  -- ground; every button's ink is 7:1 against its fill.
+  click("Use Selected Items")
+  click("Insert on New Track")
+  local worst, which = 99, nil
+  for i, t in ipairs(g.texts) do
+    local c = contrast(g.textInk[i], GROUND)
+    if c < worst then worst, which = c, t end
+  end
+  ok(worst >= 7, ("every text is 7:1 on the ground (lowest %.2f: %s)"):format(worst, tostring(which)))
+  for i, b in ipairs(g.buttons) do
+    ok(contrast(g.ink[i].text, g.ink[i].bg or 0xA9AFBAFF) >= 7, "button '" .. b .. "' is 7:1 ink on fill")
+  end
+  P.ext = {}
+  P.reset()
+  start()
+  click("Use Selected Items")
+  local warned = false
+  for i, t in ipairs(g.texts) do
+    if t:find("Select a MIDI item") then
+      warned = true
+      ok(contrast(g.textInk[i], GROUND) >= 7, "a warning is 7:1 too, not the house red")
+    end
+  end
+  ok(warned, "the warning was shown")
+
+  -- The message is at the top, above step 1, and stays until dismissed.
+  local msg, first
+  for i, o in ipairs(g.order) do
+    if o:find("Select a MIDI item", 1, true) then msg = msg or i end
+    if o:find("^heading:") then first = first or i end
+  end
+  ok(msg and first and msg < first, "the message sits above the first step")
+  for _ = 1, 20 do frame() end
+  ok(has(g.texts, "Select a MIDI item first."), "and is still there twenty frames later")
+  click("Dismiss")
+  ok(not has(g.texts, "Select a MIDI item first."), "until Dismiss takes it away")
+end
+
+-- Chosen is not shown by colour alone: each chosen button has an ink bar.
+do
+  P.ext = {}
+  project("twinkle", "Twinkle")
+  start()
+  click("Use Selected Items")
+  local chosen = 0
+  for i in ipairs(g.buttons) do if g.ink[i].bg == 0xFFF200FF then chosen = chosen + 1 end end
+  ok(chosen >= 5, "several buttons are chosen: " .. chosen)
+  eq(g.inkBars, chosen, "and each carries a bar as well as the accent")
+end
+
+-- Text Size, from the View menu and the keys.
+do
+  P.ext = {}
+  project("twinkle", "Twinkle")
+  start()
+  click("Use Selected Items")
+  local labels = {}
+  for _, m in ipairs(g.menu) do labels[#labels + 1] = m.label end
+  eq(table.concat(labels, "|"), "Text Size 100%|Text Size 125%|Text Size 150%|Text Size 200%|Bigger Text|Smaller Text",
+     "the View menu offers four sizes, bigger and smaller")
+  local before = {}
+  for i, b in ipairs(g.buttons) do before[b] = before[b] or g.widths[i] end
+  g.menuClick = "Text Size 200%"
+  frame()
+  g.menuClick = nil
+  frame()
+  eq(g.font.size, 26, "200% is 26-point text")
+  eq(13 * 2 + 2 * g.framePad, 56, "and controls twice as tall")
+  local grew = 0
+  for i, b in ipairs(g.buttons) do
+    if before[b] and before[b] > 0 and g.widths[i] >= 2 * before[b] - 1 then grew = grew + 1 end
+  end
+  ok(grew > 10, "fixed-width buttons grow with the text: " .. grew)
+  for i, b in ipairs(g.buttons) do
+    local need = ImGui.CalcTextSize(nil, (b:gsub("##.*$", "")))
+    ok(g.widths[i] == 0 or g.widths[i] >= need, "'" .. b .. "' is wide enough for its label at 200%")
+  end
+  for _, m in ipairs(g.menu) do
+    if m.label == "Bigger Text" then ok(not m.enabled, "nothing bigger than 200%") end
+  end
+  atexitFn()
+  ok(P.ext["MidiSuggester:state"]:find("textSize=4"), "the size is remembered")
+  start()
+  frame()
+  eq(g.font.size, 26, "and comes back next time")
+
+  -- Cmd (Ctrl) with -, = and 0.
+  g.mods, g.keys = ImGui.Mod_Shortcut, { [ImGui.Key_Minus] = true }
+  frame()
+  g.mods, g.keys = nil, nil
+  frame()
+  eq(g.font.size, 20, "Cmd+- makes it smaller")
+  g.keys = { [ImGui.Key_Equal] = true }
+  frame()
+  g.keys = nil
+  frame()
+  eq(g.font.size, 20, "= alone does nothing: it needs Cmd")
+  g.mods, g.keys = ImGui.Mod_Shortcut, { [ImGui.Key_0] = true }
+  frame()
+  g.mods, g.keys = nil, nil
+  frame()
+  eq(g.font.size, 13, "Cmd+0 is the actual size")
+  P.ext["MidiSuggester:state"] = "textSize=9"
+  start()
+  frame()
+  eq(g.font.size, 26, "a saved size out of range is put back in range")
 end
 
 -- A collapsed window draws nothing, but what was pushed before Begin still

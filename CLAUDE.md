@@ -214,6 +214,20 @@ apostrophes. Use the same word as Midi Variator for the same idea (*Use
 Selected Items*, *Audition*, *click*). Chord symbols and ScaleView's names stay
 as they are; saved preferences are indexes, so a label can change freely.
 
+**The rest of Apple's HIG Foundations**
+([0009](docs/decisions/0009-apples-hig-foundations.md),
+[`docs/apple-hig-review.md`](docs/apple-hig-review.md), after Transient
+Shuffler): every line of text is **7:1** on the ground (secondary `DIM`
+`#B0B6C0`, warnings `WARN` `#FF9E96` - the house red and `#8A919C` are not for
+words); **View → Text Size** 100-200% (Cmd+= / Cmd+- / Cmd+0), saved as
+`textSize`, the system sans-serif at 13 points; controls **28 points tall, 12
+apart** (`pushSize`, before `Begin`, popped after `End` like the theme);
+**keyboard navigation** on, its ring `#F2F4F7`; a chosen button also carries
+an **ink bar** (not colour alone); the **message at the top** until
+*Dismiss*. Rules for new code: every fixed size goes through `px()`, every
+button through `pick()` (which never lets it be narrower than its label),
+every text colour 7:1 - `test_ui` checks each of these per widget.
+
 The roll draws **the source in grey `#6D7581` and the suggestion in the
 accent**, so yellow always means "what you would be adding"
 ([0005](docs/decisions/0005-source-grey-suggestion-yellow.md)).
@@ -243,6 +257,7 @@ to prove it.
 | 1.0 | First release: both directions, audition, insert. Merged to `main`, in the ReaPack index. **Run in REAPER by the user**: window right, suggestions sound good. |
 | 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. Merged to `main` (PR #2), in the index. **Not yet confirmed in REAPER** - the chord editor has only been driven by the mocked ReaImGui, so ask the user how it behaved. |
 | 1.1.1 | The window's words follow Apple's writing guidelines ([0008](docs/decisions/0008-window-text-follows-apples-writing-guidelines.md)): title-style buttons, messages that say what to do, em dashes and curly quotes. On `claude/adoring-feynman-bihxp2`. |
+| 1.2 | The rest of Apple's HIG Foundations ([0009](docs/decisions/0009-apples-hig-foundations.md)): 7:1 text, Text Size up to 200%, 28-point controls, the keyboard alone, the chosen bar, the message at the top. On `ccr-f2d9adc9-lanc9o`, built on the 1.1.1 branch. **Not yet run in REAPER.** |
 
 **Known limits, all deliberate for now:**
 

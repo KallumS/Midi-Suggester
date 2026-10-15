@@ -181,6 +181,9 @@ local api = {
   -- Settings
   GetExtState = function(s, k) return P.ext[s .. ":" .. k] or "" end,
   SetExtState = function(s, k, v, persist) P.ext[s .. ":" .. k] = v end,
+
+  -- string GetOS(): "Win32", "Win64", "OSX32", "OSX64", "macOS-arm64", or "Other"
+  GetOS = function() return P.os end,
 }
 
 function P.install()
@@ -201,6 +204,7 @@ function P.reset()
   P.cursor, P.playing, P.playPos = 0, false, 0
   P.undoDepth, P.undoNames, P.refreshDepth = 0, {}, 0
   P.calls = {}
+  P.os = P.os or "macOS-arm64"
 end
 
 return P
