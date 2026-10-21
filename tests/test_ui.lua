@@ -171,7 +171,7 @@ local function chordButtons()
   local out = {}
   for i = last + 1, #g.buttons do
     local b = g.buttons[i]
-    if b == "Put back as suggested" or b == "Insert on new track" or b:match("^Swap") then break end
+    if b == "Put Back as Suggested" or b == "Insert on New Track" or b:match("^Swap") then break end
     out[#out + 1] = { i = i, label = b }
     if #out > 64 then break end
   end
@@ -216,7 +216,7 @@ frame()
 eq(#g.buttons, 1, "with nothing read there is one button")
 ok(has(g.texts, "Import a .mid file"), "and it says what to do")
 eq(#g.headings, 1, "only the first step is shown: no dead controls")
-click("Use selected item")
+click("Use Selected Items")
 ok(has(g.texts, "Select a MIDI item first."), "pressing it with nothing selected says so")
 
 ------------------------------------------------------------------------------
@@ -224,12 +224,12 @@ ok(has(g.texts, "Select a MIDI item first."), "pressing it with nothing selected
 ------------------------------------------------------------------------------
 
 local piano = project("twinkle", "Twinkle")
-click("Use selected item")
-eq(g.headings[3], "Chord progressions", "a melody gets chord progressions")
+click("Use Selected Items")
+eq(g.headings[3], "Chord Progressions", "a melody gets chord progressions")
 ok(has(g.texts, "Sounds like C Major"), "in C major")
 ok(has(g.buttons, "1.  I  IV  I  IV  I  V  I"), "and Twinkle's songbook harmony first")
 checkInk("melody")
-ok(has(g.checkboxes, "Bass note"), "the bass box is there for chords")
+ok(has(g.checkboxes, "Bass Note"), "the bass box is there for chords")
 
 -- The roll shows both layers: the source in grey and the suggestion in yellow.
 do
@@ -242,7 +242,7 @@ do
 end
 
 -- Insert puts it on a new track under the source.
-click("Insert on new track")
+click("Insert on New Track")
 eq(#P.tracks, 2, "a new track")
 eq(P.tracks[2].name, "Chords: C F C F C G C", "named for its chords")
 ok(#P.tracks[2].items[1].take.notes > 0, "with the chords on it")
@@ -258,21 +258,21 @@ click("Stop")
 ok(not P.playing, "stopped")
 eq(#P.tracks, 2, "and the temporary track gone")
 
--- More ideas gives another set, and there is a way back.
+-- More Ideas gives another set, and there is a way back.
 do
   frame()
   local first = {}
   for _, b in ipairs(g.buttons) do if b:match("^%d%.") then first[#first + 1] = b end end
-  click("More ideas")
+  click("More Ideas")
   local second = {}
   for _, b in ipairs(g.buttons) do if b:match("^%d%.") then second[#second + 1] = b end end
   ok(table.concat(first, "|") ~= table.concat(second, "|"), "more ideas are different ideas")
-  ok(has(g.buttons, "Back to the first"), "with a way back")
-  click("Back to the first")
+  ok(has(g.buttons, "Back to the First Set"), "with a way back")
+  click("Back to the First Set")
   local third = {}
   for _, b in ipairs(g.buttons) do if b:match("^%d%.") then third[#third + 1] = b end end
   eq(table.concat(third, "|"), table.concat(first, "|"), "which brings the first set back")
-  ok(not has(g.buttons, "Back to the first"), "and hides itself")
+  ok(not has(g.buttons, "Back to the First Set"), "and hides itself")
 end
 
 -- Changing the key re-suggests in the new key.
@@ -286,7 +286,7 @@ click("Chords")
 eq(g.headings[3], "Melodies", "overridden to chords, it suggests melodies")
 ok(has(g.texts, "(it looked like a melody)"), "and remembers what it found")
 click("Melody")
-eq(g.headings[3], "Chord progressions", "and back")
+eq(g.headings[3], "Chord Progressions", "and back")
 
 ------------------------------------------------------------------------------
 -- Editing a progression chord by chord
@@ -297,8 +297,8 @@ local function twinkleCFC()
   P.ext = {}
   project("twinkle", "Twinkle")
   start()
-  click("Use selected item")
-  click("1 a bar")
+  click("Use Selected Items")
+  click("1 a Bar")
   click("Triads")
   frame()
   ok(has(g.buttons, "1.  I  IV  I"), "set up: C F C first")
@@ -323,7 +323,7 @@ do
   click("Dmin")
   ok(has(g.buttons, "1.  I  ii  I   (edited)"), "the progression now reads I ii I, marked edited")
   ok(has(g.texts, "C  Dmin  C      fits"), "with its chord names")
-  ok(has(g.buttons, "Put back as suggested"), "and can be put back")
+  ok(has(g.buttons, "Put Back as Suggested"), "and can be put back")
   ok(not has(g.buttons, "2.  I  ii  I   (edited)"), "only the chosen progression changed")
 
   -- The bass box re-voices without losing the edit.
@@ -333,7 +333,7 @@ do
   frame(nil, true)
 
   -- Insert takes the edited progression.
-  click("Insert on new track")
+  click("Insert on New Track")
   eq(P.tracks[2].name, "Chords: C Dmin C", "the edited progression is what is inserted")
 
   -- Split the last C: a passing chord appears in its second half.
@@ -346,9 +346,9 @@ do
   ok(row[4] and row[4] ~= "C" and row[4] ~= "Split", "and adds a different chord after them: " .. tostring(row[4]))
 
   -- Put it back.
-  click("Put back as suggested")
+  click("Put Back as Suggested")
   ok(has(g.buttons, "1.  I  IV  I"), "put back as suggested")
-  ok(not has(g.buttons, "Put back as suggested"), "and nothing left to put back")
+  ok(not has(g.buttons, "Put Back as Suggested"), "and nothing left to put back")
 
   -- Remove F: the Cs either side join, leaving one chord - which then
   -- cannot be removed, so Remove is not drawn.
@@ -365,7 +365,7 @@ do
   ok(not has(g.buttons, "Split"), "a chord a beat long cannot be split, and the button goes")
 
   -- Choosing another suggestion leaves the editor closed.
-  click("Put back as suggested")
+  click("Put Back as Suggested")
   clickChord(2)
   frame()
   local second
@@ -379,7 +379,7 @@ do
   P.ext = {}
   project("minorTune", "Tune")
   start()
-  click("Use selected item")
+  click("Use Selected Items")
   click("Auto")
   ok(has(g.buttons, "1.  i  iv  V  i"), "the minor tune, Auto: Amin Dmin E Amin")
   local row = {}
@@ -395,13 +395,13 @@ end
 ------------------------------------------------------------------------------
 
 project("popChords", "Loop")
-click("Use selected item")
+click("Use Selected Items")
 eq(g.headings[3], "Melodies", "chords get melodies")
 ok(has(g.texts, "Chords:   C   G   Amin   F"), "and the chords are named")
 ok(has(g.buttons, "1.  Melody 1"), "melodies are offered")
-ok(not has(g.checkboxes, "Bass note"), "no bass box for melodies: no dead controls")
+ok(not has(g.checkboxes, "Bass Note"), "no bass box for melodies: no dead controls")
 checkInk("chords")
-click("Insert on new track")
+click("Insert on New Track")
 ok(P.tracks[2].name:find("^Melody 1"), "a melody track")
 
 ------------------------------------------------------------------------------
@@ -415,8 +415,8 @@ local swept = {}
 local STATES = {
   { "twinkle" }, { "popChords" }, { "arpeggios" }, { "minorTune" },
   -- The chord editor, open on a chord, and after an edit.
-  { "twinkle", function() click("1 a bar"); click("Triads"); clickChord(2) end },
-  { "twinkle", function() click("1 a bar"); click("Triads"); clickChord(2); click("Dmin"); clickChord(3) end },
+  { "twinkle", function() click("1 a Bar"); click("Triads"); clickChord(2) end },
+  { "twinkle", function() click("1 a Bar"); click("Triads"); clickChord(2); click("Dmin"); clickChord(3) end },
   { "minorTune", function() click("Auto"); click("Colourful"); clickChord(2) end },
 }
 for _, state in ipairs(STATES) do
@@ -425,7 +425,7 @@ for _, state in ipairs(STATES) do
     P.ext = {}
     project(fixture)
     start()
-    click("Use selected item")
+    click("Use Selected Items")
     if prepare then prepare() end
     frame()
   end
@@ -445,10 +445,10 @@ for _, state in ipairs(STATES) do
   frame(nil, true)
   frame(nil, true)
 end
-for _, label in ipairs({ "Use selected item", "Melody", "Chords", "C", "Cb", "Major", "Mixolydian",
-                         "2 a bar", "1 / 2 bars", "Triads", "Colourful", "Sparse", "Busy",
-                         "Low", "High", "Insert on new track", "Audition", "More ideas",
-                         "Auto", "Split", "Remove", "Put back as suggested", "Dmin" }) do
+for _, label in ipairs({ "Use Selected Items", "Melody", "Chords", "C", "Cb", "Major", "Mixolydian",
+                         "2 a Bar", "1 per 2 Bars", "Triads", "Colourful", "Sparse", "Busy",
+                         "Low", "High", "Insert on New Track", "Audition", "More Ideas",
+                         "Auto", "Split", "Remove", "Put Back as Suggested", "Dmin" }) do
   ok(swept[label], "the sweep reached '" .. label .. "'")
 end
 
@@ -458,22 +458,22 @@ end
 
 project("twinkle")
 start()
-click("Use selected item")
+click("Use Selected Items")
 click("Sevenths")
-click("1 a bar")
+click("1 a Bar")
 frame(nil, true)            -- the bass box off
 atexitFn()
 local saved = P.ext["MidiSuggester:state"]
 ok(saved and saved:find("colour=2") and saved:find("rhythm=2") and saved:find("bass=0"),
    "saved: " .. tostring(saved))
 start()
-click("Use selected item")
+click("Use Selected Items")
 ok(has(g.buttons, "1.  I  vi7  IVmaj7  I"), "reloaded with sevenths, one a bar")
 do
   -- Nonsense in the saved state is put back in range, not trusted.
   P.ext["MidiSuggester:state"] = "colour=99;rhythm=-4;bass=7;density=x;register=3.5"
   start()
-  click("Use selected item")
+  click("Use Selected Items")
   frame()
   atexitFn()
   eq(P.ext["MidiSuggester:state"], "rhythm=1;colour=3;bass=1;density=2;register=3",
@@ -485,7 +485,7 @@ end
 do
   project("twinkle")
   start()
-  click("Use selected item")
+  click("Use Selected Items")
   g.collapsed = true
   local okRun, err = pcall(frame)
   g.collapsed = false
@@ -496,7 +496,7 @@ end
 -- Quitting mid-audition leaves nothing behind.
 project("twinkle")
 start()
-click("Use selected item")
+click("Use Selected Items")
 click("Audition")
 eq(#P.tracks, 2, "auditioning")
 atexitFn()

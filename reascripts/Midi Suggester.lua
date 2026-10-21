@@ -7,13 +7,13 @@
  *
  * About:          Import a .mid file (or play something in), select the item,
  *                 and run this. It works out whether the item is a melody or
- *                 chords and what key it is in - both can be changed - and
+ *                 chords and what key it is in — both can be changed — and
  *                 lists suggestions, best first.
  *
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Midi-Suggester
- * Version:        1.1
+ * Version:        1.1.1
  * Provides:
  *   ms_theory.lua
  *   ms_read.lua
@@ -33,8 +33,9 @@ local imgui_path = reaper.ImGui_GetBuiltinPath and
                    (reaper.ImGui_GetBuiltinPath() .. "/imgui.lua")
 if not imgui_path then
   reaper.MB("Midi Suggester needs the ReaImGui extension.\n\n" ..
-            "Install it with ReaPack, from the ReaTeam Extensions repository.",
-            "Missing dependency", 0)
+            "Install it with ReaPack, from the ReaTeam Extensions repository, " ..
+            "then run Midi Suggester again.",
+            "ReaImGui Needed", 0)
   return
 end
 local ImGui = dofile(imgui_path)("0.9")
@@ -174,7 +175,8 @@ local function load(quiet)
   if not src then
     ui.src, ui.an, ui.sugs = nil, nil, {}
     if not quiet then
-      say(why == Place.NO_ITEM and "Select a MIDI item first." or "That item has no notes in it.", true)
+      say(why == Place.NO_ITEM and "Select a MIDI item first."
+          or "That item has no notes. Select a MIDI item with notes in it.", true)
     end
     return
   end
@@ -353,17 +355,17 @@ local KINDS = { "Melody", "Chords" }
 
 local function drawSource()
   heading(1, "Source")
-  if pick("Use selected item", false, 170) then load() end
-  tip("Select a MIDI item in the arrange view - an imported .mid file is one -\n" ..
-      "or open one in the MIDI editor, then press this. Several selected items\n" ..
+  if pick("Use Selected Items", false, 170) then load() end
+  tip("Select a MIDI item in the arrange view — an imported .mid file is one —\n" ..
+      "or open one in the MIDI editor, then click this. Several selected items\n" ..
       "are read as one piece.")
   if not ui.src then
-    dim("Import a .mid file onto a track, select the item it makes, and press the button.")
+    dim("Import a .mid file onto a track, select the item it makes, and click Use Selected Items.")
     return
   end
   ImGui.SameLine(ctx, 0, 16)
   local bars = math.floor(ui.an.beats / ui.src.barBeats + 0.5)
-  dim(("\"%s\"   %d bar%s of %d/%d, %d notes%s"):format(ui.src.name, bars, bars == 1 and "" or "s",
+  dim(("“%s”   %d bar%s of %d/%d, %d notes%s"):format(ui.src.name, bars, bars == 1 and "" or "s",
       ui.src.num, ui.src.den, #ui.src.notes,
       ui.src.items > 1 and (", from " .. ui.src.items .. " items") or ""))
 
@@ -371,8 +373,8 @@ local function drawSource()
   ImGui.SameLine(ctx, 0, 10)
   local cur = ui.an.kind == "Melody" and 1 or 2
   local k = chooser("kind", KINDS, cur, 0, 90, nil, function(x)
-    return x == "Melody" and "One note at a time: suggest chords to go under it"
-                          or "Chords: suggest melodies to go over them"
+    return x == "Melody" and "One note at a time — suggests chords to go under it"
+                          or "Chords — suggests melodies to go over them"
   end)
   if k and KINDS[k] ~= ui.an.kind then
     ui.kind, ui.keyRoot, ui.keyScale, ui.variation = KINDS[k], nil, nil, 0
@@ -409,7 +411,7 @@ local function drawKey()
   local function label(k) return T.ROOTS[k.root].name .. " " .. T.SCALES[k.scale].name end
   dim(("Sounds like %s, then %s."):format(label(best), label(second)))
   tip("Worked out from which notes are played and for how long, and from the\n" ..
-      "note the music ends on. Pick another key if it has guessed wrong.")
+      "note the music ends on. Choose another key if this one sounds wrong.")
 end
 
 local function drawOptions()
@@ -428,7 +430,7 @@ local function drawOptions()
     end)
     if c then st.colour = c; touched() end
     ImGui.SameLine(ctx, 0, 24)
-    local changed, v = ImGui.Checkbox(ctx, "Bass note", st.bass == 1)
+    local changed, v = ImGui.Checkbox(ctx, "Bass Note", st.bass == 1)
     if changed then
       -- Re-voiced in place, so a bass note added or taken away does not
       -- throw away edits made to a progression.
@@ -436,7 +438,7 @@ local function drawOptions()
       Place.auditionStop()
       for _, sg in ipairs(ui.sugs) do labelProgression(sg) end
     end
-    tip("Adds each chord's root, low, under the chord")
+    tip("Adds each chord’s root, low, under the chord.")
   else
     dim("Notes")
     ImGui.SameLine(ctx, 0, 10)
@@ -465,7 +467,7 @@ local function drawChordEditor(s, w)
     if pick(c.chord.symbol, ui.chord == i, math.max(36, usable * c.len / ui.an.beats)) then
       ui.chord = (ui.chord == i) and nil or i
     end
-    tip(("%s  -  %s, %g beat%s"):format(c.chord.symbol, c.chord.numeral, c.len, c.len == 1 and "" or "s"))
+    tip(("%s — %s, %g beat%s"):format(c.chord.symbol, c.chord.numeral, c.len, c.len == 1 and "" or "s"))
     ImGui.PopID(ctx)
   end
 
@@ -480,7 +482,7 @@ local function drawChordEditor(s, w)
       if pick(alt.chord.symbol, false, 70) then
         edit(s, function() H.replace(s, i, alt.chord, ui.an.line) end)
       end
-      tip(("%s  -  fits %d%% of the melody here"):format(alt.chord.numeral,
+      tip(("%s — fits %d%% of the melody here"):format(alt.chord.numeral,
           math.floor(alt.match * 100 + 0.5)))
       ImGui.PopID(ctx)
     end
@@ -507,7 +509,7 @@ local function drawChordEditor(s, w)
 
   -- Whenever it has been edited, whichever chord is selected.
   if s.original then
-    if pick("Put back as suggested", false, 180) then
+    if pick("Put Back as Suggested", false, 180) then
       Place.auditionStop()
       local orig = s.original
       ui.sugs[ui.pick] = orig
@@ -520,13 +522,13 @@ local function drawChordEditor(s, w)
 end
 
 local function drawSuggestions()
-  heading(3, ui.an.kind == "Melody" and "Chord progressions" or "Melodies")
+  heading(3, ui.an.kind == "Melody" and "Chord Progressions" or "Melodies")
   drawOptions()
   ImGui.Dummy(ctx, 0, 4)
 
   local w = select(1, ImGui.GetContentRegionAvail(ctx))
   if #ui.sugs == 0 then
-    dim("Nothing to suggest for this.")
+    dim("There’s nothing to suggest for this item.")
   end
   for i, s in ipairs(ui.sugs) do
     ImGui.PushID(ctx, "sug" .. i)
@@ -548,14 +550,14 @@ local function drawSuggestions()
 
   ImGui.Dummy(ctx, 0, 2)
   if not chosen then return end
-  if pick("Insert on new track", false, 170) then
+  if pick("Insert on New Track", false, 170) then
     Place.auditionStop()
     local r = Place.insert(chosen.notes, ui.an.beats, ui.src, chosen.trackName)
-    if r == Place.OK then say("Inserted on a new track under \"" .. ui.src.name .. "\".")
-    else say("REAPER would not make the item.", true) end
+    if r == Place.OK then say("Inserted on a new track under “" .. ui.src.name .. "”.")
+    else say("REAPER couldn’t make the item. Try again.", true) end
   end
-  tip("A new track under the source, lined up with it bar for bar, with a copy\n" ..
-      "of the source track's instrument so it plays straight away. One undo step.")
+  tip("Puts it on a new track under the source, lined up bar for bar, with a copy\n" ..
+      "of the source track’s instrument so it plays straight away. It’s one undo step.")
 
   ImGui.SameLine(ctx)
   local playing = Place.auditioning()
@@ -563,14 +565,14 @@ local function drawSuggestions()
     if playing then Place.auditionStop()
     else
       local r = Place.auditionStart(chosen.notes, ui.an.beats, ui.src)
-      if r ~= Place.OK then say("REAPER would not make the preview.", true) end
+      if r ~= Place.OK then say("REAPER couldn’t start the audition. Try again.", true) end
     end
   end
-  tip("Plays the project from the source's first bar with this suggestion on a\n" ..
-      "temporary track. Stopping - here or in REAPER - takes the track away.")
+  tip("Plays the project from the source’s first bar with this suggestion on a\n" ..
+      "temporary track. Stopping — here or in REAPER — takes the track away.")
 
   ImGui.SameLine(ctx, 0, 16)
-  if pick("More ideas", false, 110) then
+  if pick("More Ideas", false, 110) then
     ui.variation = ui.variation + 1
     ui.pick = 1
     touched()
@@ -578,7 +580,7 @@ local function drawSuggestions()
   tip("Another set of suggestions. The first set is always the best-scoring.")
   if ui.variation > 0 then
     ImGui.SameLine(ctx)
-    if pick("Back to the first", false, 140) then ui.variation, ui.pick = 0, 1; touched() end
+    if pick("Back to the First Set", false, 170) then ui.variation, ui.pick = 0, 1; touched() end
   end
 end
 

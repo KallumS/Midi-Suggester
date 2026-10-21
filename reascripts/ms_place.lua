@@ -20,7 +20,7 @@ M.OK, M.NOTHING, M.NO_ITEM, M.FAILED = 0, 1, 2, 3
 -- removed the next time the script starts.
 M.EXT_KEY    = "P_EXT:MidiSuggester"
 M.PREVIEW    = "preview"
-M.PREVIEW_NAME = "Midi Suggester preview"
+M.PREVIEW_NAME = "Midi Suggester Audition"
 
 ------------------------------------------------------------------------------
 -- Reading
