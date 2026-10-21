@@ -60,6 +60,15 @@
         <source file="ms_melody.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/c80d6f799395d481b4dd0b870db0c67214988660/reascripts/ms_melody.lua</source>
         <source file="ms_place.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/c80d6f799395d481b4dd0b870db0c67214988660/reascripts/ms_place.lua</source>
       </version>
+      <version name="1.3" author="kallums" time="2026-10-21T12:00:00Z">
+        <changelog><![CDATA[A final pass over Apple's design guidelines for Mac apps: menus and tooltips are lighter than the window, the Bass Note box has an edge you can see before it is ticked, rows of buttons and long lines wrap instead of running off the window at large text sizes, and the window won't shrink smaller than its widest button. Changes you make to a progression are no longer thrown away without asking - new suggestions or closing the window ask first - and Put Back as Suggested can be undone with Restore the Changes. Esc lets go of the keyboard's place before it closes the window. Step headings are bold, the title names your item, a line under the picture says which notes are yours, and every chord-rhythm, note and register choice explains itself when you hover it.]]></changelog>
+        <source main="main" file="Midi Suggester.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/Midi%20Suggester.lua</source>
+        <source file="ms_theory.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/ms_theory.lua</source>
+        <source file="ms_read.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/ms_read.lua</source>
+        <source file="ms_harmony.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/ms_harmony.lua</source>
+        <source file="ms_melody.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/ms_melody.lua</source>
+        <source file="ms_place.lua">https://raw.githubusercontent.com/KallumS/Midi-Suggester/d94da020f824976309485355fdd7cb1f47011504/reascripts/ms_place.lua</source>
+      </version>
       <metadata>
         <description><![CDATA[{\pard Midi Suggester\par
 Select a MIDI item - an imported .mid file is one - and run the script. For a melody it suggests chord progressions; for chords it suggests melodies. Audition a suggestion against the original, then insert it on a new track lined up bar for bar.\par
