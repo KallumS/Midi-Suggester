@@ -109,11 +109,16 @@ the chord is long, so they line up with the picture underneath. Click a chord
 | **Swap it** | Pick from the chords that fit the melody there and flow from the chord before into the chord after, best first. Hover one to see how much of the melody it fits. |
 | **Split** | Cut it in two and put a *passing chord* in the second half, chosen to lead into the next chord - C before F becomes C then C7, for example. |
 | **Remove** | Take it out; the chord before carries on in its place. |
-| **Put Back as Suggested** | Undo every change you made to this progression. |
+| **Put Back as Suggested** | Undo every change you made to this progression. **Restore the Changes** then brings them back, if you change your mind. |
 
 Split is not shown on a chord only a beat long, and Remove is not shown when
 there is only one chord left. Audition and Insert use the progression as you
 have edited it.
+
+Your changes live only in the window. Anything that makes new suggestions -
+another key, another chord rhythm, *More Ideas*, another item - or closing
+the window would throw them away, so it **asks first**: click *Cancel*, then
+*Insert on New Track*, to keep them.
 
 ### For chords - melodies
 
@@ -141,6 +146,27 @@ It puts the suggestion on a temporary track and plays your project from the
 start of your item, so you hear the suggestion together with the original.
 Click **Stop** (or stop REAPER) and the temporary track disappears again, and
 the edit cursor goes back to where it was.
+
+## Bigger text, and the keyboard
+
+The window follows Apple's design guidelines for Mac apps
+([what that covers](docs/apple-hig-review.md)).
+
+- **View → Text Size** makes everything bigger, up to twice the size: 100%,
+  125%, 150% or 200%. **Cmd+=** and **Cmd+-** (Ctrl on Windows) do the same,
+  and **Cmd+0** goes back to 100%. It remembers your choice.
+- **The keyboard alone works.** Press **Tab** or an arrow key and a white
+  ring appears round a control; Tab and the arrows move it, and **Space** or
+  **Return** clicks. **Esc** first lets go of the ring (or closes the View
+  menu); pressed again, with nothing held, it closes the window.
+- **Messages appear at the top** and stay until you click **Dismiss**.
+- A chosen button is yellow **and** has a dark bar under its name, so it
+  doesn't depend on seeing colour. In the picture, your original's notes are
+  the darker ones and the suggestion's the bright ones, and a line under it
+  says so.
+- Rows of buttons and long lines of text wrap at the window's edge, so
+  nothing is cut off at 200%; the window will not shrink smaller than its
+  widest button. Its title names the item you are working on.
 
 ## If something goes wrong
 

@@ -19,3 +19,4 @@ the standing rules; this holds the decisions behind them.
 | [0006](0006-auto-reads-half-bars.md) | Auto chord timing reads half bars, not beats |
 | [0007](0007-edit-one-chord.md) | A chosen progression is edited chord by chord, in place |
 | [0008](0008-window-text-follows-apples-writing-guidelines.md) | The window's text follows Apple's writing guidelines |
+| [0009](0009-apples-hig-foundations.md) | Apple's HIG Foundations are the standard for the window |
