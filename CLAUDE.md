@@ -228,6 +228,16 @@ an **ink bar** (not colour alone); the **message at the top** until
 button through `pick()` (which never lets it be narrower than its label),
 every text colour 7:1 - `test_ui` checks each of these per widget.
 
+**The final sweep** (1.3, 0009's dated section): menus and tooltips a step
+lighter than the window (`#2A2F37`, edge `#3A404A`), every theme colour a
+blue-shifted grey (checked); controls' edges 3:1 (the box's `BOX_EDGE`).
+Rules for new code: a row starts with `rowStart()` and each item goes
+through `place()` - `button()` and `words()` do it - so it wraps rather than
+running off the edge (`test_ui` places every item and fails on one past it);
+secondary text is `dim()`, which wraps; anything that throws away chord
+edits calls `letGo("Doing it")` first and stops if it says no. Esc lets go
+of the keyboard's place or a menu before it closes the window (`ui.held`).
+
 The roll draws **the source in grey `#6D7581` and the suggestion in the
 accent**, so yellow always means "what you would be adding"
 ([0005](docs/decisions/0005-source-grey-suggestion-yellow.md)).
@@ -258,6 +268,7 @@ to prove it.
 | 1.1 | Auto chord timing, chord-by-chord editing, the minor-key and secondary-dominant fixes. Merged to `main` (PR #2), in the index. **Not yet confirmed in REAPER** - the chord editor has only been driven by the mocked ReaImGui, so ask the user how it behaved. |
 | 1.1.1 | The window's words follow Apple's writing guidelines ([0008](docs/decisions/0008-window-text-follows-apples-writing-guidelines.md)): title-style buttons, messages that say what to do, em dashes and curly quotes. On `claude/adoring-feynman-bihxp2`. |
 | 1.2 | The rest of Apple's HIG Foundations ([0009](docs/decisions/0009-apples-hig-foundations.md)): 7:1 text, Text Size up to 200%, 28-point controls, the keyboard alone, the chosen bar, the message at the top. On `ccr-f2d9adc9-lanc9o`, built on the 1.1.1 branch. **Not yet run in REAPER.** |
+| 1.3 | The final sweep of the Foundations: lighter menus, 3:1 edges, rows that wrap, a minimum size, Esc lets go first, asking before chord edits are thrown away, *Restore the Changes*, bold headings, the item in the title. On `ccr-f2d9adc9-lanc9o`. **Not yet run in REAPER.** |
 
 **Known limits, all deliberate for now:**
 

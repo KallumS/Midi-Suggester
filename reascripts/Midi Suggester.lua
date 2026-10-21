@@ -13,7 +13,7 @@
  *                 Needs ReaImGui, from the ReaTeam Extensions repository.
  * Author:         Kallum Shah
  * Links:          https://github.com/KallumS/Midi-Suggester
- * Version:        1.2
+ * Version:        1.3
  * Provides:
  *   ms_theory.lua
  *   ms_read.lua
@@ -58,10 +58,22 @@ local Place = dofile(HERE .. "ms_place.lua")
 
 local THEME = {
   { "Col_Text",              0xDDE1E7FF },
-  { "Col_TextDisabled",      0x8A919CFF },
+  -- ImGui writes a menu item's keys (Cmd+=) in this colour, so it is a word
+  -- and 7:1 on the menu too (#8A919C was 4.2:1 there). A disabled item is
+  -- drawn faded on top of this, which Apple exempts.
+  { "Col_TextDisabled",      0xBFC5CEFF },
   { "Col_WindowBg",          0x23272EFF },
-  { "Col_PopupBg",           0x1B1F25FF },
-  { "Col_Border",            0x14171CFF },
+  -- Menus and tooltips sit in front of the window, so they are a step
+  -- lighter than it, as Apple's dark surfaces are (#1B1F25 was darker), with
+  -- an edge of their own.
+  { "Col_PopupBg",           0x2A2F37FF },
+  { "Col_Border",            0x3A404AFF },
+  { "Col_MenuBarBg",         0x1B1F25FF },
+  -- A menu item under the pointer, and pressed: lighter, then darker, as a
+  -- button is. ImGui's own were blue.
+  { "Col_Header",            0x3A404AFF },
+  { "Col_HeaderHovered",     0x3A404AFF },
+  { "Col_HeaderActive",      0x22262DFF },
   { "Col_FrameBg",           0x1A1D23FF },
   { "Col_FrameBgHovered",    0x22262DFF },
   { "Col_FrameBgActive",     0x2A2F37FF },
@@ -76,9 +88,15 @@ local THEME = {
   { "Col_SliderGrabActive",  0xFFF200FF },
   { "Col_Separator",         0x3A404AFF },
   { "Col_ScrollbarBg",       0x1A1D23FF },
-  { "Col_ScrollbarGrab",     0x585F6BFF },
-  { "Col_ScrollbarGrabHovered", 0x6D7581FF },
+  -- Things you can drag are 3:1 on what they sit on, like any control's
+  -- edge (#585F6B was 2.6:1 on its track). The window's resize corner was
+  -- ImGui's blue.
+  { "Col_ScrollbarGrab",     0x6D7581FF },
+  { "Col_ScrollbarGrabHovered", 0x8A919CFF },
   { "Col_ScrollbarGrabActive",  0xA9AFBAFF },
+  { "Col_ResizeGrip",        0x6D7581FF },
+  { "Col_ResizeGripHovered", 0x8A919CFF },
+  { "Col_ResizeGripActive",  0xA9AFBAFF },
   -- The keyboard's focus ring: the playhead's near-white, because yellow
   -- means "on" and a focused control is not necessarily on.
   { "Col_NavHighlight",      0xF2F4F7FF },
@@ -102,6 +120,10 @@ local ROLL_BAND = 0x2A2F37FF
 -- the house red #D2483F 3.4:1, so neither is used for words any more.
 local DIM       = 0xB0B6C0FF
 local WARN      = 0xFF9E96FF
+-- The edge of the Bass Note box: 3:1 on the ground and on the box's own
+-- dark fill, so the box can be seen before it is ticked (Apple asks the
+-- same contrast of a control's edge as of an icon; the fill alone was 1.1:1).
+local BOX_EDGE  = 0x8A919CFF
 
 -- Shifts a colour towards white or black, keeping its alpha byte - without
 -- it ReaImGui is handed a fully transparent colour.
@@ -134,6 +156,9 @@ local ui = {
   sugs = {}, pick = 1, variation = 0,
   chord = nil,        -- which chord of the chosen progression is being edited
   dirty = false, status = "", warn = false, playhead = nil,
+  -- The keyboard is on a control, or a menu is open, as of the last frame:
+  -- then Escape lets go of that rather than closing the window.
+  held = false,
 }
 
 local ctx
@@ -150,6 +175,7 @@ local labelProgression
 local TEXT_SIZES = { 100, 125, 150, 200 }
 local BASE_TEXT = 13
 local fonts = {}           -- one per size, made and attached once in main()
+local bold = {}            -- the same in bold, for the step headings
 local S = 1                -- the chosen size as a scale: 1, 1.25, 1.5 or 2
 local function px(n) return math.floor(n * S + 0.5) end
 
@@ -315,12 +341,16 @@ local function pick(label, selected, width, exact)
   return hit
 end
 
+-- A step's heading is bold, Apple's Headline style (13-point bold), so the
+-- steps stand out from the text under them by weight as well as by the rule.
 local function heading(n, text)
+  ImGui.PushFont(ctx, bold[st.textSize])
   ImGui.PushStyleColor(ctx, ImGui.Col_Text, STEP)
   ImGui.Text(ctx, tostring(n))
   ImGui.PopStyleColor(ctx, 1)
   ImGui.SameLine(ctx, 0, px(10))
   ImGui.SeparatorText(ctx, text)
+  ImGui.PopFont(ctx)
 end
 
 -- The gap between numbered steps. A gap, not an arrow: it separates them
@@ -332,31 +362,50 @@ local function tip(text)
   if text and ImGui.IsItemHovered(ctx) then ImGui.SetTooltip(ctx, text) end
 end
 
-local function dim(text)
-  ImGui.PushStyleColor(ctx, ImGui.Col_Text, DIM)
-  ImGui.Text(ctx, text)
+-- Secondary text, wrapped at the window's edge rather than cut off by it.
+local function dim(text, col)
+  ImGui.PushStyleColor(ctx, ImGui.Col_Text, col or DIM)
+  ImGui.TextWrapped(ctx, text)
   ImGui.PopStyleColor(ctx, 1)
 end
 
--- A row of choices, wrapping at the window's edge. Returns the index
--- clicked, or nil.
-local function chooser(id, items, current, perRow, width, label, hint)
+--[[  Rows that wrap. Every row of buttons and words starts with rowStart()
+      and places each item with place(width), which puts it beside the last
+      if it fits and on a new line if not - so at 200% in a narrow window
+      nothing runs off the right-hand edge where it cannot be reached. ]]
+local row = { x = 0, avail = 0 }
+local function rowStart() row.x, row.avail = 0, select(1, ImGui.GetContentRegionAvail(ctx)) end
+local function place(w, gap)
+  gap = gap or px(12)
+  if row.x > 0 and row.x + gap + w <= row.avail then
+    ImGui.SameLine(ctx, 0, gap)
+    row.x = row.x + gap + w
+  else
+    row.x = w
+  end
+end
+local function textWidth(text) return (ImGui.CalcTextSize(ctx, text)) end
+-- Words in a row: beside what came before if they fit, else on a line of
+-- their own, wrapped.
+local function words(text, gap, col)
+  place(math.min(textWidth(text), row.avail), gap)
+  dim(text, col)
+end
+-- A button in a row.
+local function button(label, selected, width, exact, gap)
+  place(fit(label, width or 0, exact), gap)
+  return pick(label, selected, width or 0, exact)
+end
+
+-- A row of choices, wrapping at the window's edge, carrying on the row
+-- already started. Returns the index clicked, or nil.
+local function chooser(id, items, current, width, label, hint, gap)
   local chosen
-  local avail = select(1, ImGui.GetContentRegionAvail(ctx))
-  local x = 0
   ImGui.PushID(ctx, id)
   for i, item in ipairs(items) do
     local text = label and label(item, i) or tostring(item)
-    local w = fit(text, width)
-    if i > 1 and (perRow == 0 or (i - 1) % perRow ~= 0) and x + px(12) + w <= avail then
-      ImGui.SameLine(ctx)
-      x = x + px(12)
-    else
-      x = 0
-    end
-    x = x + w
     ImGui.PushID(ctx, i)
-    if pick(text, current == i, width) then chosen = i end
+    if button(text, current == i, width, false, i == 1 and gap or nil) then chosen = i end
     if hint then tip(hint(item, i)) end
     ImGui.PopID(ctx)
   end
@@ -381,9 +430,10 @@ local function pianoRoll(source, suggestion, beats, barBeats, width, height, pla
     ImGui.DrawList_AddRectFilled(dl, bx, y, bx + width * (band.len / beats), y + height, ROLL_BAND, 0)
   end
 
+  -- Grid lines on the middle of a pixel, so a one-point line stays sharp.
   local b = 0
   while b <= beats + 1e-9 do
-    local gx = x + width * (b / beats)
+    local gx = math.floor(x + width * (b / beats)) + 0.5
     ImGui.DrawList_AddLine(dl, gx, y, gx, y + height,
                            (b % barBeats < 1e-9) and ROLL_BAR or ROLL_BEAT, 1)
     b = b + 1
@@ -410,10 +460,32 @@ local function pianoRoll(source, suggestion, beats, barBeats, width, height, pla
     end
   end
 
+  -- The playhead grows with the text, like everything else drawn.
   if playhead then
-    local px = x + width * math.min(1, playhead)
-    ImGui.DrawList_AddLine(dl, px, y, px, y + height, PLAYHEAD, 2)
+    local hx = x + width * math.min(1, playhead)
+    ImGui.DrawList_AddLine(dl, hx, y, hx, y + height, PLAYHEAD, px(2))
   end
+end
+
+------------------------------------------------------------------------------
+-- Asking first
+--
+-- Changes made to a progression live only in this window: new suggestions
+-- (another key, rhythm or source, More Ideas) and closing the window throw
+-- them away, and nothing brings them back. Apple asks for a confirmation
+-- before anything that cannot be undone, so it asks, in REAPER's own dialog
+-- (which VoiceOver can read), and only when there are changes to lose.
+------------------------------------------------------------------------------
+
+local function letGo(doing)
+  local edited
+  for _, s in ipairs(ui.sugs) do if s.original then edited = s; break end end
+  if not edited then return true end
+  local answer = reaper.ShowMessageBox(
+    ("%s throws away the changes made to “%s”.\n\n" ..
+     "To keep them, click Cancel, then Insert on New Track."):format(doing, table.concat(edited.numerals, " ")),
+    "Throw Away the Changes?", 1)
+  return answer == 1
 end
 
 ------------------------------------------------------------------------------
@@ -424,7 +496,8 @@ local KINDS = { "Melody", "Chords" }
 
 local function drawSource()
   heading(1, "Source")
-  if pick("Use Selected Items", false, 170) then load() end
+  rowStart()
+  if button("Use Selected Items", false, 170) and letGo("Reading another item") then load() end
   tip("Select a MIDI item in the arrange view — an imported .mid file is one —\n" ..
       "or open one in the MIDI editor, then click this. Several selected items\n" ..
       "are read as one piece.")
@@ -432,27 +505,25 @@ local function drawSource()
     dim("Import a .mid file onto a track, select the item it makes, and click Use Selected Items.")
     return
   end
-  ImGui.SameLine(ctx, 0, px(16))
   local bars = math.floor(ui.an.beats / ui.src.barBeats + 0.5)
-  dim(("“%s”   %d bar%s of %d/%d, %d notes%s"):format(ui.src.name, bars, bars == 1 and "" or "s",
-      ui.src.num, ui.src.den, #ui.src.notes,
-      ui.src.items > 1 and (", from " .. ui.src.items .. " items") or ""))
+  words(("“%s”   %d bar%s of %d/%d, %d notes%s"):format(ui.src.name, bars, bars == 1 and "" or "s",
+        ui.src.num, ui.src.den, #ui.src.notes,
+        ui.src.items > 1 and (", from " .. ui.src.items .. " items") or ""), px(16))
 
-  dim("It is")
-  ImGui.SameLine(ctx, 0, px(10))
+  rowStart()
+  words("It is")
   local cur = ui.an.kind == "Melody" and 1 or 2
-  local k = chooser("kind", KINDS, cur, 0, 90, nil, function(x)
+  local k = chooser("kind", KINDS, cur, 90, nil, function(x)
     return x == "Melody" and "One note at a time — suggests chords to go under it"
                           or "Chords — suggests melodies to go over them"
-  end)
-  if k and KINDS[k] ~= ui.an.kind then
+  end, px(10))
+  if k and KINDS[k] ~= ui.an.kind and letGo("Changing what the item is") then
     ui.kind, ui.keyRoot, ui.keyScale, ui.variation = KINDS[k], nil, nil, 0
     Place.auditionStop()
     analyse()
   end
   if ui.an.kind ~= ui.an.detected then
-    ImGui.SameLine(ctx, 0, px(16))
-    dim(("(it looked like %s)"):format(ui.an.detected == "Melody" and "a melody" or "chords"))
+    words(("(it looked like %s)"):format(ui.an.detected == "Melody" and "a melody" or "chords"), px(16))
   end
 
   if ui.an.chords then
@@ -464,14 +535,16 @@ end
 
 local function drawKey()
   heading(2, "Key")
-  local r = chooser("root", T.ROOTS, ui.keyRoot, 0, 38, function(x) return x.name end)
-  if r then
+  rowStart()
+  local r = chooser("root", T.ROOTS, ui.keyRoot, 38, function(x) return x.name end)
+  if r and r ~= ui.keyRoot and letGo("Changing the key") then
     ui.keyRoot = r
     analyse()
     Place.auditionStop()
   end
-  local s = chooser("scale", T.SCALES, ui.keyScale, 0, 124, function(x) return x.name end)
-  if s then
+  rowStart()
+  local s = chooser("scale", T.SCALES, ui.keyScale, 124, function(x) return x.name end)
+  if s and s ~= ui.keyScale and letGo("Changing the key") then
     ui.keyScale = s
     analyse()
     Place.auditionStop()
@@ -483,23 +556,49 @@ local function drawKey()
       "note the music ends on. Choose another key if this one sounds wrong.")
 end
 
+-- What each choice does, in words, for the ones whose name alone does not say.
+local RHYTHM_HINTS = {
+  "A chord every half bar",
+  "A chord every bar",
+  "A chord every two bars",
+  "The tune decides — a chord changes on a bar line, or halfway through a bar\n" ..
+  "where the tune asks for it, and lasts as long as the tune lets it",
+}
+local DENSITY_HINTS = {
+  "Long notes, with room between them",
+  "Mostly quarter and eighth notes",
+  "Runs of eighth and sixteenth notes",
+}
+local REGISTER_HINTS = {
+  "Around middle C",
+  "Around the G above middle C",
+  "Around the D an octave above middle C",
+}
+
 local function drawOptions()
   if ui.an.kind == "Melody" then
-    dim("Change chord")
-    ImGui.SameLine(ctx, 0, px(10))
-    local r = chooser("rhythm", H.RHYTHMS, st.rhythm, 0, 96, function(x) return x.name end)
-    if r then st.rhythm = r; touched() end
+    rowStart()
+    words("Change chord")
+    local r = chooser("rhythm", H.RHYTHMS, st.rhythm, 96, function(x) return x.name end,
+                      function(_, i) return RHYTHM_HINTS[i] end, px(10))
+    if r and r ~= st.rhythm and letGo("Changing how often the chord changes") then st.rhythm = r; touched() end
 
-    dim("Chords from")
-    ImGui.SameLine(ctx, 0, px(10))
-    local c = chooser("colour", H.COLOURS, st.colour, 0, 96, nil, function(_, i)
+    rowStart()
+    words("Chords from")
+    local c = chooser("colour", H.COLOURS, st.colour, 96, nil, function(_, i)
       return ({ "The seven chords the key is built from",
                 "Those, and their sevenths",
                 "Those, plus chords borrowed from the parallel key and secondary dominants" })[i]
-    end)
-    if c then st.colour = c; touched() end
-    ImGui.SameLine(ctx, 0, px(24))
+    end, px(10))
+    if c and c ~= st.colour and letGo("Changing which chords are used") then st.colour = c; touched() end
+    -- The box is a frame as tall as a button, a gap, then its label.
+    place(px(28) + px(8) + textWidth("Bass Note"), px(24))
+    -- The box's edge, so it can be seen unticked.
+    ImGui.PushStyleColor(ctx, ImGui.Col_Border, BOX_EDGE)
+    ImGui.PushStyleVar(ctx, ImGui.StyleVar_FrameBorderSize, math.max(1, px(1)))
     local changed, v = ImGui.Checkbox(ctx, "Bass Note", st.bass == 1)
+    ImGui.PopStyleVar(ctx, 1)
+    ImGui.PopStyleColor(ctx, 1)
     if changed then
       -- Re-voiced in place, so a bass note added or taken away does not
       -- throw away edits made to a progression.
@@ -507,16 +606,16 @@ local function drawOptions()
       Place.auditionStop()
       for _, sg in ipairs(ui.sugs) do labelProgression(sg) end
     end
-    tip("Adds each chord’s root, low, under the chord.")
+    tip("When ticked, each chord’s root is added low, under the chord.")
   else
-    dim("Notes")
-    ImGui.SameLine(ctx, 0, px(10))
-    local d = chooser("density", Mel.DENSITIES, st.density, 0, 84, function(x) return x.name end)
+    rowStart()
+    words("Notes")
+    local d = chooser("density", Mel.DENSITIES, st.density, 84, function(x) return x.name end,
+                      function(_, i) return DENSITY_HINTS[i] end, px(10))
     if d then st.density = d; touched() end
-    ImGui.SameLine(ctx, 0, px(24))
-    dim("Register")
-    ImGui.SameLine(ctx, 0, px(10))
-    local g = chooser("register", Mel.REGISTERS, st.register, 0, 64, function(x) return x.name end)
+    words("Register", px(24))
+    local g = chooser("register", Mel.REGISTERS, st.register, 64, function(x) return x.name end,
+                      function(_, i) return REGISTER_HINTS[i] end, px(10))
     if g then st.register = g; touched() end
   end
 end
@@ -530,10 +629,12 @@ local function drawChordEditor(s, w)
   dim("Click a chord to change it")
   local gap = 3
   local usable = math.max(px(160), w) - gap * (#s.chords - 1)
+  rowStart()
   for i, c in ipairs(s.chords) do
-    if i > 1 then ImGui.SameLine(ctx, 0, gap) end
     ImGui.PushID(ctx, "chord" .. i)
-    if pick(c.chord.symbol, ui.chord == i, math.max(px(36), usable * c.len / ui.an.beats), true) then
+    -- Touching, like the segments of one control, so the row lines up with
+    -- the bars in the roll; it wraps only when the chords will not fit.
+    if button(c.chord.symbol, ui.chord == i, math.max(px(36), usable * c.len / ui.an.beats), true, gap) then
       ui.chord = (ui.chord == i) and nil or i
     end
     tip(("%s — %s, %g beat%s"):format(c.chord.symbol, c.chord.numeral, c.len, c.len == 1 and "" or "s"))
@@ -543,12 +644,11 @@ local function drawChordEditor(s, w)
   local i = ui.chord
   if i and s.chords[i] then
     local c = s.chords[i]
-    dim(("Swap %s for"):format(c.chord.symbol))
-    ImGui.SameLine(ctx, 0, px(10))
+    rowStart()
+    words(("Swap %s for"):format(c.chord.symbol))
     for k, alt in ipairs(H.alternatives(s, i, ui.an.line)) do
-      if k > 1 then ImGui.SameLine(ctx) end
       ImGui.PushID(ctx, "alt" .. k)
-      if pick(alt.chord.symbol, false, 70) then
+      if button(alt.chord.symbol, false, 70, false, k == 1 and px(10) or nil) then
         edit(s, function() H.replace(s, i, alt.chord, ui.an.line) end)
       end
       tip(("%s — fits %d%% of the melody here"):format(alt.chord.numeral,
@@ -556,36 +656,46 @@ local function drawChordEditor(s, w)
       ImGui.PopID(ctx)
     end
 
-    local any = false
+    rowStart()
     if H.canSplit(s, i) then
-      if pick("Split", false, 70) then
+      if button("Split", false, 70) then
         ui.chord = edit(s, function() return H.split(s, i, ui.an.line) end)
       end
       tip("Cuts this chord in two and puts a passing chord in the second\n" ..
           "half, chosen to lead into the chord after it.")
-      any = true
     end
     if H.canRemove(s) then
-      if any then ImGui.SameLine(ctx) end
-      if pick("Remove", false, 80) then
+      if button("Remove", false, 80) then
         edit(s, function() H.remove(s, i, ui.an.line) end)
         ui.chord = nil
       end
       tip("Takes this chord out; the chord before it plays on in its place.")
-      any = true
     end
   end
 
-  -- Whenever it has been edited, whichever chord is selected.
+  -- Whenever it has been edited, whichever chord is selected. Putting it
+  -- back can itself be undone: the changes are kept until the next edit.
   if s.original then
     if pick("Put Back as Suggested", false, 180) then
       Place.auditionStop()
       local orig = s.original
+      orig.edited = s
       ui.sugs[ui.pick] = orig
       labelProgression(orig)
       ui.chord = nil
     end
-    tip("Undoes every change made to this progression here.")
+    tip("Undoes every change made to this progression here.\n" ..
+        "Restore the Changes brings them back.")
+  elseif s.edited then
+    if pick("Restore the Changes", false, 180) then
+      Place.auditionStop()
+      local changed = s.edited
+      s.edited = nil
+      ui.sugs[ui.pick] = changed
+      labelProgression(changed)
+      ui.chord = nil
+    end
+    tip("Brings back the changes Put Back as Suggested took away.")
   end
   ImGui.Dummy(ctx, 0, px(2))
 end
@@ -601,13 +711,13 @@ local function drawSuggestions()
   end
   for i, s in ipairs(ui.sugs) do
     ImGui.PushID(ctx, "sug" .. i)
-    if pick(("%d.  %s"):format(i, s.title), ui.pick == i, math.max(px(160), w * 0.42), true) then
+    rowStart()
+    if button(("%d.  %s"):format(i, s.title), ui.pick == i, math.max(px(160), w * 0.42), true) then
       if ui.pick ~= i then Place.auditionStop(); ui.chord = nil end
       ui.pick = i
     end
     ImGui.PopID(ctx)
-    ImGui.SameLine(ctx, 0, px(14))
-    dim(s.detail)
+    words(s.detail, px(14))
   end
 
   ImGui.Dummy(ctx, 0, px(4))
@@ -616,10 +726,15 @@ local function drawSuggestions()
   local band = chosen and ui.chord and chosen.chords and chosen.chords[ui.chord]
   pianoRoll(ui.src.notes, chosen and chosen.notes, ui.an.beats, ui.src.barBeats,
             math.max(160, w), px(110), ui.playhead, band)
+  -- Which notes are which, in words as well as colour - and in lightness,
+  -- which reads whatever colours a person sees.
+  dim("In the roll, the darker notes are the source and the bright ones the suggestion" ..
+      (band and "; the shaded stretch is the chord being changed." or "."))
 
   ImGui.Dummy(ctx, 0, px(2))
   if not chosen then return end
-  if pick("Insert on New Track", false, 170) then
+  rowStart()
+  if button("Insert on New Track", false, 170) then
     Place.auditionStop()
     local r = Place.insert(chosen.notes, ui.an.beats, ui.src, chosen.trackName)
     if r == Place.OK then say("Inserted on a new track under “" .. ui.src.name .. "”.")
@@ -628,9 +743,8 @@ local function drawSuggestions()
   tip("Puts it on a new track under the source, lined up bar for bar, with a copy\n" ..
       "of the source track’s instrument so it plays straight away. It’s one undo step.")
 
-  ImGui.SameLine(ctx)
   local playing = Place.auditioning()
-  if pick(playing and "Stop" or "Audition", playing, 96) then
+  if button(playing and "Stop" or "Audition", playing, 96) then
     if playing then Place.auditionStop()
     else
       local r = Place.auditionStart(chosen.notes, ui.an.beats, ui.src)
@@ -640,16 +754,17 @@ local function drawSuggestions()
   tip("Plays the project from the source’s first bar with this suggestion on a\n" ..
       "temporary track. Stopping — here or in REAPER — takes the track away.")
 
-  ImGui.SameLine(ctx, 0, px(16))
-  if pick("More Ideas", false, 110) then
+  if button("More Ideas", false, 110, false, px(16)) and letGo("More ideas") then
     ui.variation = ui.variation + 1
     ui.pick = 1
     touched()
   end
   tip("Another set of suggestions. The first set is always the best-scoring.")
   if ui.variation > 0 then
-    ImGui.SameLine(ctx)
-    if pick("Back to the First Set", false, 170) then ui.variation, ui.pick = 0, 1; touched() end
+    if button("Back to the First Set", false, 170) and letGo("Going back to the first set") then
+      ui.variation, ui.pick = 0, 1
+      touched()
+    end
   end
 end
 
@@ -693,11 +808,9 @@ end
 -- Apple asks for nothing that goes away on a timer.
 local function drawMessage()
   if ui.status == "" then return end
-  ImGui.PushStyleColor(ctx, ImGui.Col_Text, ui.warn and WARN or DIM)
-  ImGui.Text(ctx, ui.status)
-  ImGui.PopStyleColor(ctx, 1)
-  ImGui.SameLine(ctx, 0, px(16))
-  if pick("Dismiss", false) then say("") end
+  rowStart()
+  words(ui.status, nil, ui.warn and WARN or DIM)
+  if button("Dismiss", false, nil, false, px(16)) then say("") end
 end
 
 local function frame()
@@ -722,19 +835,35 @@ end
 
 local sectionID, cmdID
 
+-- The window's title names what it is working on, which is also what a
+-- screen reader can read of it. "###" keeps the window the same window
+-- whatever the title says.
+local function title()
+  return TITLE .. (ui.src and (" — " .. ui.src.name) or "") .. "###" .. TITLE
+end
+
 local function loop()
   ImGui.SetNextWindowSize(ctx, 900, 720, ImGui.Cond_FirstUseEver)
+  -- Never so small that a button is cut off: as wide as the widest one at
+  -- this text size, and tall enough for the message and step 1.
+  ImGui.SetNextWindowSizeConstraints(ctx, px(400), px(300), 100000, 100000)
   ImGui.SetNextWindowBgAlpha(ctx, 1.0)
   pushTheme()
   pushSize()
-  local visible, open = ImGui.Begin(ctx, TITLE, true, ImGui.WindowFlags_MenuBar)
+  local visible, open = ImGui.Begin(ctx, title(), true, ImGui.WindowFlags_MenuBar)
   if visible then
     frame()
     ImGui.End(ctx)
   end
   popSize()
   popTheme()   -- outside the visible test: a push always needs its pop
-  if open and not ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) then
+
+  -- Escape lets go of the keyboard's place, or a menu, first (ImGui does
+  -- that itself); only with nothing held does it close the window.
+  local escape = ImGui.IsKeyPressed(ctx, ImGui.Key_Escape) and not ui.held
+  ui.held = ImGui.IsAnyItemFocused(ctx) or ImGui.IsPopupOpen(ctx, "", ImGui.PopupFlags_AnyPopup)
+  if (not open or escape) and not letGo("Closing the window") then open, escape = true, false end
+  if open and not escape then
     reaper.defer(loop)
   end
 end
@@ -761,8 +890,11 @@ local function main()
   -- or Return presses one, and a ring shows where you are.
   ctx = ImGui.CreateContext(TITLE, ImGui.ConfigFlags_NavEnableKeyboard)
   for i, size in ipairs(TEXT_SIZES) do
-    fonts[i] = ImGui.CreateFont("sans-serif", math.floor(BASE_TEXT * size / 100 + 0.5))
+    local points = math.floor(BASE_TEXT * size / 100 + 0.5)
+    fonts[i] = ImGui.CreateFont("sans-serif", points)
+    bold[i] = ImGui.CreateFont("sans-serif", points, ImGui.FontFlags_Bold)
     ImGui.Attach(ctx, fonts[i])
+    ImGui.Attach(ctx, bold[i])
   end
   setTextSize(st.textSize)
   load(true)

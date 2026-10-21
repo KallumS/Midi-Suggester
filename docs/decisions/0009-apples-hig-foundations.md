@@ -36,3 +36,23 @@ where its messages sat ([`docs/apple-hig-review.md`](../apple-hig-review.md)).
   Contrast, right to left. Escape still closes the window.
 - Unverified in REAPER: the zoom keys reaching the window, and which face
   "sans-serif" resolves to.
+
+## Final sweep, 16 October 2026 (1.3)
+
+Every Foundations guideline checked again
+([`apple-hig-review.md`](../apple-hig-review.md#final-sweep-16-october-2026)),
+with the family's shared decisions:
+
+- **Menus and tooltips a step lighter** than the window (`#2A2F37`, edge
+  `#3A404A`); the menu bar, its highlight and the resize corner from the
+  ramp, not ImGui's. Menu keys in `#BFC5CE`, 7:1 on the menu.
+- **Controls' edges 3:1**: the box's edge `#8A919C`, the scrollbar thumb
+  `#6D7581`.
+- **Rows wrap** (`rowStart`/`place`/`button`/`words`) and secondary text is
+  `TextWrapped`; a minimum window size.
+- **Escape** lets go of the keyboard's place or a menu before it closes the
+  window. This reverses "Escape still closes the window" above.
+- **Asking first** (`letGo`): new suggestions or closing over chord edits
+  ask in REAPER's dialog; *Put Back as Suggested* can be undone.
+- Bold step headings; the title names the item; a line names the roll's
+  notes; hints for every chord rhythm, density and register.
