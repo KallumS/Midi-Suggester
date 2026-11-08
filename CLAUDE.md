@@ -47,15 +47,20 @@ were tuned against 1.2 million sonorities of real music; they are not to be
 retuned here. A change belongs in ScaleView first, then is copied across.
 `tests/test_theory.lua` holds ScaleView's own expected names to prove the copy.
 
-**10 October 2026: the Blocks dictionary**, ScaleView Pro's `df4ea43`
-(its decision 0011): where the notes are a Starting Blocks chord - one of
-its 78 chord types on any root, in any inversion, or one of the key's own
-chords on its degrees - `nameChord` names them on one of Blocks' roots, the
-reader's cost choosing between them. Ported into `nameChord` (the key's
-chords are built once per key and kept on the key table) and diffed against
-Pro over every one- to seven-note voicing and the music21 core corpus's
-distinct sonorities, in no key and seven keys: 439,504 names, byte-identical.
-Six of ScaleView's names in `test_theory.lua` moved with Pro's.
+**8 November 2026: the Blocks dictionary is gone again.** ScaleView Pro took
+Starting Blocks' chord list as a gate on the root on 10 October (`df4ea43`,
+its decision 0011) and this copy followed. Pro reversed it on 7 November
+(`f13f8a6`, ScaleView Pro 1.3.0): the list holds only complete chords, so a
+chord played with a note left out lost its root to a complete chord with the
+same notes - C D E G A B read `Amin11/C` (Cmaj13), C D Eb Bb `A#add9Add11/C`
+(a Cmin9 shell), C D Bb `A#add9/C` (C7sus2). The port of it (`4577b87`) is
+reversed here, so `nameChord` is the reader alone again. Diffed against Pro
+1.3.0 over every one- to seven-note voicing on every bass, with the bass and
+the top note each doubled too, in no key and seven keys: 427,776 names,
+byte-identical (the same rig finds 25,824 differences against the copy with
+the dictionary). The six names in `test_theory.lua` that moved with 0011 are back
+to their earlier values, its Blocks-only cases are gone, and Pro's five new
+pins for the names 0011 got wrong are added.
 
 **Last re-copied 7 October 2026**, from `e31a6e8` to `f9e2691`, for two changes
 made and measured in Pro: an altered dominant on its own root keeps its
