@@ -12,6 +12,8 @@ It works out by itself whether the item is a melody or chords, and what key
 it is in. Both are shown, and both can be changed with one click if it has
 guessed wrong.
 
+**In Ableton Live:** `ableton/` has Midi Suggester as a Max for Live MIDI effect. See [`ableton/README.md`](ableton/README.md).
+
 ## Installing
 
 **1. Install ReaImGui.** The script will not start without it.
