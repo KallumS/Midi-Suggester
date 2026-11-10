@@ -14,6 +14,8 @@ guessed wrong.
 
 **In Ableton Live:** `ableton/` has Midi Suggester as a Max for Live MIDI effect. See [`ableton/README.md`](ableton/README.md).
 
+![Midi Suggester in Ableton Live](ableton/window.png)
+
 ## Installing
 
 **1. Install ReaImGui.** The script will not start without it.
