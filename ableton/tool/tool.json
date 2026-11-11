@@ -1,0 +1,36 @@
+{
+  "name": "Midi Suggester",
+  "slug": "MidiSuggesterTool",
+  "kind": "transformation",
+  "template": "midi_tool",
+  "description": "Midi Suggester in Live's Transform panel: chords under the selected melody, or a melody over the selected chords, added beside them.",
+  "device": {
+    "generator": "midi-suggester",
+    "keyless": true,
+    "beside": true,
+    "tool": "transform",
+    "result": "Suggestion"
+  },
+  "files": {
+    "midi-suggester/ms_theory.lua": "../../reascripts/ms_theory.lua",
+    "midi-suggester/ms_read.lua": "../../reascripts/ms_read.lua",
+    "midi-suggester/ms_harmony.lua": "../../reascripts/ms_harmony.lua",
+    "midi-suggester/ms_melody.lua": "../../reascripts/ms_melody.lua",
+    "adapters/common.lua": "../adapters/common.lua",
+    "adapters/midi_suggester.lua": "../adapters/midi_suggester.lua",
+    "adapters/index.lua": {
+      "text": "return { \"adapters/midi_suggester.lua\" }\n"
+    }
+  },
+  "scripts": [
+    "../kit/palette.js",
+    "../kit/runtime/polyfill.js",
+    "../kit/runtime/lua_parse.js",
+    "../kit/runtime/lua_runtime.js",
+    "../kit/runtime/lua_compile.js",
+    "../kit/runtime/host.js",
+    "../kit/ui.js",
+    "../kit/live.js",
+    "../kit/miditool.js"
+  ]
+}
